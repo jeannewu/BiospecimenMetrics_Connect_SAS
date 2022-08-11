@@ -30,26 +30,11 @@ recr_tb_noinact <- bq_project_query(project, sql)
 #d_793072415,d_795827569,d_826240317,d_849786503,d_869588347,d_892050548,d_996038075) FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'")
 recru_noinact_wl <- bigrquery::bq_table_download(recr_tb_noinact,bigint="integer64")
 
-# Check that it doesn't match any non-number
-numbers_only <- function(x) !grepl("\\D", x)
-data1 <-  recru_noinact_wl
-cnames <- names(recru_noinact_wl)
-###to check variables in recr_noinact_wl1
-for (i in 1: length(cnames)){
-  varname <- cnames[i]
-  var<-pull(data1,varname)
-  data1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
-}
-
-tmp <- recru_noinact_wl[,c(2:268)]
-data1 <- merge(tmp,tb_id, by="token")
-
-
 ###Option B, chop the big data into small pieces and via bigrquery to download by piece and combine them together in a for loop to generate a list of small
 ###datasets 
 recrvar <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_recrument1_WL_varnames_08102022.csv",head=T)
 
-nvar = floor((length(recrvar$column_name))/4)
+nvar = floor((length(recrvar$column_name))/4) ##to define the number of variables in each sql extract from GCP
 nvar
 
 # Start column for each split data frame
@@ -67,7 +52,7 @@ for (i in (1:length(start)))  {
   
 }
 
-recr <- do.call(cbind,recrbq)
+recr_noinact_wl <- do.call(cbind,recrbq)
 
 ###Option B2. here below is the alternative option to download the data if it is too big to download as a whole
   select <- paste(recrvar$column_name[1,50],collapse=",")
@@ -86,9 +71,17 @@ recr <- do.call(cbind,recrbq)
   tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
   tmp4 <- bq_table_download(tmp, bigint="integer64")
   
- bq <- cbind(tmp1,tmp2,tmp3,tmp4)  
+  recr_noinact_wl<- cbind(tmp1,tmp2,tmp3,tmp4)  
 
-
+ ###convert the numeric
+ data1 <- recr_noinact_wl
+ cnames <- names(recru_noinact_wl)
+ ###to check variables in recr_noinact_wl1
+ for (i in 1: length(cnames)){
+   varname <- cnames[i]
+   var<-pull(data1,varname)
+   data1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+ }
  ###to download the data to box as csv file
  ###write the prod.recruitment1_WL to box folder
  box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
