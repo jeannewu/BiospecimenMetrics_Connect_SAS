@@ -76,7 +76,7 @@ recr_noinact_wl <- do.call(cbind,recrbq)
 
  data1 <- recr_noinact_wl
  cnames <- names(recr_noinact_wl)
- ###to check variables in recr_noinact_wl1
+ ###to check variables in recr_noinact_wl
  for (i in 1: length(cnames)){
    varname <- cnames[i]
    var<-pull(data1,varname)
