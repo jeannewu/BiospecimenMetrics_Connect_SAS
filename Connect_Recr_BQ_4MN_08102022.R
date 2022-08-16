@@ -41,15 +41,12 @@ nvar
 start = seq(1,length(recrvar$column_name),nvar)
 
 # Split bqdata into a bunch of separate data frames
-df.list = lapply(setNames(start, paste0("chr10_p3_", start, "_", start+ncols-1)), 
-                 function(i) chr10_p3[ ,i:min(i+ncols-1,ncol(chr10_p3)-1)])
 
 recrbq <- list()
 for (i in (1:length(start)))  {
   select <- paste(recrvar$column_name[start[i]:(min(start[i]+nvar-1,202))],collapse=",")
   tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
-  recrbq[[i]] <- bq_table_download(tmp, bigint="integer64")
-  
+  recrbq[[i]] <- bq_table_download(tmp, bigint="integer64") 
 }
 
 recr_noinact_wl <- do.call(cbind,recrbq)
@@ -74,6 +71,9 @@ recr_noinact_wl <- do.call(cbind,recrbq)
   recr_noinact_wl<- cbind(tmp1,tmp2,tmp3,tmp4)  
 
  ###convert the numeric
+ ### Check that it doesn't match any non-number
+ numbers_only <- function(x) !grepl("\\D", x)
+
  data1 <- recr_noinact_wl
  cnames <- names(recru_noinact_wl)
  ###to check variables in recr_noinact_wl1
