@@ -34,6 +34,11 @@ recru_noinact_wl <- bigrquery::bq_table_download(recr_tb_noinact,bigint="integer
 ###datasets 
 recrvar <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_recrument1_WL_varnames_08102022.csv",head=T)
 
+# option two for the column names of recruitment table
+recr_var <- bq_project_query(project, query="SELECT * FROM `nih-nci-dceg-connect-prod-6d04.recruitment`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS WHERE table_name='recruitment1_WL'")
+recrvar <- bigrquery::bq_table_download(recr_var,bigint = "integer64")
+
+
 nvar = floor((length(recrvar$column_name))/4) ##to define the number of variables in each sql extract from GCP
 nvar
 
@@ -45,30 +50,15 @@ start = seq(1,length(recrvar$column_name),nvar)
 recrbq <- list()
 for (i in (1:length(start)))  {
   select <- paste(recrvar$column_name[start[i]:(min(start[i]+nvar-1,202))],collapse=",")
-  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
+  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT token,", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
   recrbq[[i]] <- bq_table_download(tmp, bigint="integer64") 
 }
 
-recr_noinact_wl <- do.call(cbind,recrbq)
+##exclude PII variables:
+PII <- c("d_348474836","d_371067537","d_388711124","d_421823980","d_442166669","d_471168198","d_479278368","d_544150384","d_564964481",
+         "d_635101039","d_736251808","d_765336427","d_793072415","d_795827569","d_826240317","d_849786503","d_869588347","d_892050548")
+recr_noinact_wl <- recrbq %>% reduce(inner_join, by = "token")
 
-###Option B2. here below is the alternative option to download the data if it is too big to download as a whole
-  select <- paste(recrvar$column_name[1,50],collapse=",")
-  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
-  tmp1 <- bq_table_download(tmp, bigint="integer64")
-
-  select <- paste(recrvar$column_name[51:100],collapse=",")
-  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
-  tmp2 <- bq_table_download(tmp, bigint="integer64")
-  
-  select <- paste(recrvar$column_name[101:150],collapse=",")
-  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
-  tmp3 <- bq_table_download(tmp, bigint="integer64")
-  
-  select <- paste(recrvar$column_name[151:202],collapse=",")
-  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` Where d_512820379 != '180583933'\")",sep=" ")))
-  tmp4 <- bq_table_download(tmp, bigint="integer64")
-  
-  recr_noinact_wl<- cbind(tmp1,tmp2,tmp3,tmp4)  
 
  ###convert the numeric
  ### Check that it doesn't match any non-number
@@ -82,7 +72,10 @@ recr_noinact_wl <- do.call(cbind,recrbq)
    var<-pull(data1,varname)
    data1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
  }
- ###to download the data to box as csv file
+
+ recr_noinact_wl1 <- data1[,!(names(data1) %in% PII)] 
+
+###to download the data to box as csv file
  ###write the prod.recruitment1_WL to box folder
  box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
           client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm") 
@@ -94,5 +87,5 @@ recr_noinact_wl <- do.call(cbind,recrbq)
  # owner: robertsamm@nih.gov
  # contents: 5 files, 1 folders
  
- box_write(object = data1, file_name = "prod_recrument1_WL_bio3var_NM_noinactive_07212022csv",
+ box_write(object = recr_noinact_wl1, file_name = "prod_recrument1_WL_bio3var_NM_noinactive_07212022csv",
            description = "Connect Prod flat Recruitment1_WL, July 21: verified=1090")
