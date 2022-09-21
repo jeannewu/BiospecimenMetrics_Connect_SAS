@@ -35,27 +35,27 @@ proc freq data=tmp; table RcrtES_Site_v1r0*BL_BioChk_Complete_v1r0/list missing;
 ***	c. Add time trend graph for count of duplicates above
 ***	d. Add markers for when wording about using the same account as before added to PWA login screen; 
 ***		(redacted account solution added email message; 
-***		and new login pages (still in dev’t)
+***		and new login pages (still in devâ€™t)
 ***	e. Add table for Mia of verified participants by site and per month (non-cumulative). Should include # active recruits, 
 ***			#active verified, #passive verified, #invitations, % active response rate (new w/ just actives), 
 ***			%total/overall response rate (how we are calculating currently with both active+passive in numerator), 
 ***			#opt outs + time trend graph
-***	f. Crosstab of people in the ‘consented, no profile’ status stratified by account sign in mechanism to watch for people who 
+***	f. Crosstab of people in the â€˜consented, no profileâ€™ status stratified by account sign in mechanism to watch for people who 
 ***		are stuck in that status and not getting any reminders to complete their UP due to signing in with phone (and time trend 
 ***		as well to see if this is increasing?)
 ***	g. Metric on whether our user profile reminders work at all for those who do receive them. In other words, does anyone finish 
 ***	their UP after UP reminder 1, reminder 2, etc
 ***	Similar to above, metric on whether our survey reminders are working. How affective they are
 ***	Minor updates:
-***	‘How recruits heard about the study’ table – currently the denominator is out all of recruits (regardless of sign in), 
+***	â€˜How recruits heard about the studyâ€™ table â€“ currently the denominator is out all of recruits (regardless of sign in), 
 ***	should be out of recruits signed in (or should it be out of consented??)
-***	Add column for ‘total cannot be verified’ for each site to ‘reasons cannot be verified’ table as right now the total is 
+***	Add column for â€˜total cannot be verifiedâ€™ for each site to â€˜reasons cannot be verifiedâ€™ table as right now the total is 
 ***	only for all recruits.
-***	Take out category for ‘Google.com’ for sign-in mechanism as this is not being used anymore.
+***	Take out category for â€˜Google.comâ€™ for sign-in mechanism as this is not being used anymore.
 ***	Opt outs:
 ***	Change sorting of pre-consent opt-out to descending by total %
 ***	Stratify this table by binomial age of working group vs. retired (lt 55, ge 55?)
-***	Will need to upcode many of the ‘reasons-other specified’. TBD. Amelia to categorize all of the other reasons to get a 
+***	Will need to upcode many of the â€˜reasons-other specifiedâ€™. TBD. Amelia to categorize all of the other reasons to get a 
 ***	count.
 ***	Add additional categories for reasons for opt-out: : Language barrier, already in another study, transportation/distance to clinic barrier, not a member
 ***	Deanna to draft KBAs
@@ -155,7 +155,7 @@ RcrtSI_RecruitType_v1r0*RcrtV_Verification_v1r0/list missing;run;
                                                   RcrtSI_
                                                   OptOut_                             Cumulative    Cumulative
                                                      v1r0    Frequency     Percent     Frequency      Percent
-                                                 ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                                 Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
                                                       No        68840       95.85         68840        95.85
                                                       Yes        2978        4.15         71818       100.00
 
@@ -165,7 +165,7 @@ RcrtSI_RecruitType_v1r0*RcrtV_Verification_v1r0/list missing;run;
                                                    RcrtSI_
                                                    Recruit                             Cumulative    Cumulative
                                                  Type_v1r0    Frequency     Percent     Frequency      Percent
-                                                ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                                Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
                                                 Active           71571       99.66         71571        99.66
                                                 Passive            247        0.34         71818       100.00
 
@@ -174,14 +174,14 @@ RcrtSI_RecruitType_v1r0*RcrtV_Verification_v1r0/list missing;run;
 
                                                         RcrtV_                             Cumulative    Cumulative
                                              Verification_v1r0    Frequency     Percent     Frequency      Percent
-                                            ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                                            Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
                                             Verified                  2367        3.30          2367         3.30
                                             Cannot be verified           3        0.00          2370         3.30
                                             Not yet verified         69448       96.70         71818       100.00
 
        RcrtSI_Recruit                RcrtV_                             Cumulative    Cumulative
             Type_v1r0     Verification_v1r0    Frequency     Percent     Frequency      Percent
-     ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+     Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
      Active              Verified                  2120        2.95          2120         2.95
      Active              Cannot be verified           3        0.00          2123         2.96
      Active              Not yet verified         69448       96.70         71571        99.66
@@ -192,17 +192,17 @@ var recrstart_wk recrveri_wk Rcrt_Centorwk;
 run;
 ***                                                                                               N                                                       Lower
   Variable       Label                                                                  N    Miss           Mean        Std Dev        Minimum       Quartile
-  ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+  Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
   recrstart_wk   recruitment time by week                                           71818       0          50.72           7.86           1.00          47.00
   recrveri_wk    recruitment verification time by week from the recruitment start    2367   69451          50.84           8.65           1.00          47.00
-  ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+  Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
 
                                                                                                                           Upper
                  Variable       Label                                                                    Median        Quartile         Maximum
-                 ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                 Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
                  recrstart_wk   recruitment time by week                                                  52.00           56.00           60.00
                  recrveri_wk    recruitment verification time by week from the recruitment start          53.00           57.00           60.00
-                 ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+                 Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
 *******;
 
 proc freq data=recr_resprate;table RecrAll_Starttime*recrstart_wk/list missing out=recr_count noprint;run;
@@ -243,6 +243,7 @@ if RecrAll_Starttime =. then recruitment_date=datepart(RecrAll_Starttime1+ 7*60*
 if recrAll_starttime ^=. then recruitment_date = datepart(RecrAll_Starttime + 7*60*60*24*(recrstart_wk-1));
 format recruitment_date date9. RecrAll_Starttime1 datetime21.;
 response_rate=100*cum_veri/cum_recruit;
+recruitment_month=put(recruitment_date, mmyy7.);
 run;
 
 proc print data=recrver_cum1 noobs;
@@ -307,15 +308,40 @@ run;
 ********;
 
 ***to convert the response rate by month;
-
-proc summary data=recrver_cum1 nway;
-class recruitment_date / order=freq; /* sort by descending sum */
-format recruitment_date monyy7.; /* apply year format to date for grouping purposes */
-var recrveri_wk cum_veri cum_recruit response_rate;
-output out=recrver_cum1_month (drop=_:) sum=;
+proc sort data=recrver_cum1; by recruitment_month recrstart_wk; run;
+data recrver_cum1_month;set recrver_cum1;
+by recruitment_month;
+if last.recruitment_month=1 then output;
 run;
-proc sort data=recrver_cum1_month; by recruitment_date; run;
 
+*proc summary data=recrver_cum1 nway;
+*class recruitment_date / order=freq; /* sort by descending sum */
+*format recruitment_date monyy7.; /* apply year format to date for grouping purposes */
+*var recrveri_wk cum_veri cum_recruit response_rate;
+*output out=recrver_cum1_month (drop=_:) sum=;
+*run;
+proc sort data=recrver_cum1_month; by recrveri_wk; run;
+proc print data=recrver_cum1_month noobs;
+var RecrAll_Starttime recruitment_date recruitment_month recrstart_wk recrveri_wk cum_veri cum_recruit response_rate; 
+run;
+****                                               recruitment_    Recruitment_    recrstart_    recrveri_                  cum_     response_
+                          RecrAll_Starttime        date           month            wk            wk       cum_veri    recruit       rate
+
+                         23JUL2021:20:00:15     30JUL2021        JUL2021            2             2            8          10      80.0000
+                         23JUL2021:20:00:15     24SEP2021        SEP2021           10            10            9          20      45.0000
+                                          .     29OCT2021        OCT2021           15            15           16          26      61.5385
+                         23JUL2021:20:00:15     26NOV2021        NOV2021           19            19           24         316       7.5949
+                         23JUL2021:20:00:15     31DEC2021        DEC2021           24            24           46        1073       4.2870
+                         23JUL2021:20:00:15     28JAN2022        JAN2022           28            28           68        1776       3.8288
+                         23JUL2021:20:00:15     25FEB2022        FEB2022           32            32          101        2574       3.9239
+                         23JUL2021:20:00:15     25MAR2022        MAR2022           36            36          158        4007       3.9431
+                         23JUL2021:20:00:15     29APR2022        APR2022           41            41          269        7846       3.4285
+                         23JUL2021:20:00:15     27MAY2022        MAY2022           45            45          450       13500       3.3333
+                         23JUL2021:20:00:15     24JUN2022        JUN2022           49            49          760       25187       3.0174
+                         23JUL2021:20:00:15     29JUL2022        JUL2022           54            54         1379       42469       3.2471
+                         23JUL2021:20:00:15     26AUG2022        AUG2022           58            58         2058       63006       3.2664
+                         23JUL2021:20:00:15     09SEP2022        SEP2022           60            60         2367       71818       3.2958
+******;
  goptions reset=all border;
 ***Figure 1. the reponse rate vs total active recruitment;
 /* Define the axis characteristics */                                                                                                   
@@ -534,7 +560,7 @@ run;
 			181769837 = "Other"
 
               site                               Obs         Minimum         Maximum
-               ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+               Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
                Kaiser Permanente Colorado          31            2.00          470.00
                                                                 12.00        14454.00
                                                                  2.80           71.43
@@ -569,8 +595,8 @@ run;
                University of Chicago Medicine      16            5.00           98.00
                                                                  1.00          285.00
                                                                 32.29           82.35
-               ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
-               ƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒƒ
+               Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
+               Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’Æ’
 
 ********;
 
@@ -633,13 +659,16 @@ run;
 
 proc sort data=recrver_site; by site recruitment_date;
 run;
-proc summary data=recrver_site nway;
-by site;
-class recruitment_date / order=freq; /* sort by descending sum */
-format recruitment_date monyy7.; /* apply year format to date for grouping purposes */
-var recrveri_wk cum_veri cum_recruit response_rate;
-output out=recrver_site_month (drop=_:) sum=;
+data recrver_site; set recrver_site;
+recruitment_month=put(recruitment_date,monyy7.);
 run;
+proc sort data=recrver_site; by site recruitment_month recrveri_wk;run;
+
+data recrver_site_month;set recrver_site;
+by site recruitment_month;
+if last.recruitment_month=1 then output;
+run;
+
 
 proc sgplot data=recruit_now nowall noborder;
 vbar site /response=cum_veri_max datalabel ;
