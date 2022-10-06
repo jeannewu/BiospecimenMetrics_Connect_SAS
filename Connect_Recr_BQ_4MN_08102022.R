@@ -19,20 +19,20 @@ bq_auth()
 project <- "nih-nci-dceg-connect-prod-6d04"
 billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
 
-tb <- bq_project_query(project, query= "SELECT Connect_ID, token, d_821247024 FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'")
-tb_id <- bq_table_download(tb, bigint="integer64")
+#tb <- bq_project_query(project, query= "SELECT Connect_ID, token, d_821247024 FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'")
+#tb_id <- bq_table_download(tb, bigint="integer64")
 
-sql <- "SELECT * EXCEPT (d_153211406,d_231676651,d_348474836,d_371067537,d_388711124,d_399159511,d_421823980,d_436680969,d_438643922,d_442166669,d_471168198,d_479278368,d_521824358,d_544150384,d_564964481,d_634434746,d_635101039,d_703385619,d_736251808,d_765336427,
-d_793072415,d_795827569,d_826240317,d_849786503,d_869588347,d_892050548,d_996038075) FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'"
-recr_tb_noinact <- bq_project_query(project, sql)
+#sql <- "SELECT * EXCEPT (d_153211406,d_231676651,d_348474836,d_371067537,d_388711124,d_399159511,d_421823980,d_436680969,d_438643922,d_442166669,d_471168198,d_479278368,d_521824358,d_544150384,d_564964481,d_634434746,d_635101039,d_703385619,d_736251808,d_765336427,
+#d_793072415,d_795827569,d_826240317,d_849786503,d_869588347,d_892050548,d_996038075) FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'"
+#recr_tb_noinact <- bq_project_query(project, sql)
 
 #recr_tb_noinact <- bq_project_query(project, query="SELECT * EXCEPT (d_153211406,d_231676651,d_348474836,d_371067537,d_388711124,d_399159511,d_421823980,d_436680969,d_438643922,d_442166669,d_471168198,d_479278368,d_521824358,d_544150384,d_564964481,d_634434746,d_635101039,d_703385619,d_736251808,d_765336427,
 #d_793072415,d_795827569,d_826240317,d_849786503,d_869588347,d_892050548,d_996038075) FROM `nih-nci-dceg-connect-prod-6d04.recruitment.recruitment1_WL` WHERE d_512820379 != '180583933'")
-recru_noinact_wl <- bigrquery::bq_table_download(recr_tb_noinact,bigint="integer64")
+#recru_noinact_wl <- bigrquery::bq_table_download(recr_tb_noinact,bigint="integer64")
 
 ###Option B, chop the big data into small pieces and via bigrquery to download by piece and combine them together in a for loop to generate a list of small
 ###datasets 
-recrvar <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_recrument1_WL_varnames_08102022.csv",head=T)
+#recrvar <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_recrument1_WL_varnames_08102022.csv",head=T)
 
 # option two for the column names of recruitment table
 recr_var <- bq_project_query(project, query="SELECT * FROM `nih-nci-dceg-connect-prod-6d04.recruitment`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS WHERE table_name='recruitment1_WL'")
@@ -86,6 +86,7 @@ recr_noinact_wl <- recrbq %>% reduce(inner_join, by = "token")
  # tree: All Files/Connect_CCC/Team File Share
  # owner: robertsamm@nih.gov
  # contents: 5 files, 1 folders
- 
- box_write(object = recr_noinact_wl1, file_name = "prod_recrument1_WL_bio3var_NM_noinactive_07212022csv",
+ currentDate <- Sys.Date()
+
+box_write(object = recr_noinact_wl1, file_name = "prod_recrument1_WL_NM_noinactive_currentDate".csv",
            description = "Connect Prod flat Recruitment1_WL, July 21: verified=1090")
