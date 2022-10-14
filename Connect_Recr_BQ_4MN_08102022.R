@@ -74,13 +74,8 @@ recr_noinact_wl <- recrbq %>% reduce(inner_join, by = "token")
  }
 
  recr_noinact_wl1 <- data1[,!(names(data1) %in% PII)] 
-
-###to download the data to box as csv file
- ###write the prod.recruitment1_WL to box folder
- box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
-          client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm") 
- box_setwd(dir_id = 161836233301) 
- # box.com working directory changed to 'Team File Share'
+###here below should be the code to write to box.nih which authenticator needs to be applied if asked
+#y changed to 'Team File Share'
  # 
  # id: 161836233301
  # tree: All Files/Connect_CCC/Team File Share
