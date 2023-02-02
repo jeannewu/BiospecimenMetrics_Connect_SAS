@@ -1,0 +1,1256 @@
+---
+title: "CCC_metrics_markdown_Daily"
+author: "JingWu"
+header-includes:  
+    - \usepackage[labelformat=empty]{caption}
+
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
+
+output:
+  pdf_document:
+    pandoc_args: --listings    
+    extra_dependencies: ["float"]
+    #number_sections: true
+    toc: true
+    toc_depth: 2
+    keep_tex: yes
+    fig_width: 8
+    fig_height: 6
+    fig_caption: true
+    latex_engine: xelatex
+    df_print: paged 
+---
+
+## General Information
+
+This is the Daily report of Connect on Recruitment Progress from Opt out, SignIn, Submissions of Consent form, User Profile, and Verification status. The Demographic information of  the Participants are summarized by age, race, sex. The response rate of the study is calculated controlled with the total number of participants from the active recruitments of all sites and each site individually. and The completions of all verified participants are calculated, based on the completions of four baseline survey modules and biospecimen donations.
+
+The working data applied is the recruitment data "nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP" updated from synchronouslly updated with the ongoing study, without any inactive participants, or duplicates found in the active recruitments.
+
+All the variable are masked under the CIDs which can be tracked in the master dictionary: "https://episphere.github.io/conceptGithubActions/aggregate.json"
+
+This is a R programming for the CCC daily metrics on the recruitment programs: sign in, profile submission, consent submission,verification, demographics, survey completions based on recruitment data "`r format(Sys.Date(), '%d %B, %Y')`"
+
+
+```{r,include=FALSE,echo=FALSE,results='hold'}
+library(bigrquery)
+library(data.table) ###to write or read and data management 
+library(boxr) ###read or write data from/to box
+library(tidyverse) ###for data management
+library(dplyr) ###data management
+library(reshape)  ###to work on transition from long to wide or wide to long data
+library(listr) ###to work on a list of vector, files or..
+library(sqldf) ##sql
+library(lubridate) ###date time
+library(ggplot2) ###plots
+library(ggpubr) ###for the publications of plots
+library(RColorBrewer) ###visions color http://www.sthda.com/english/wiki/colors-in-r
+library(gridExtra)
+library(stringr) ###to work on patterns, charaters
+library(plyr)
+library(rmarkdown) ###for the output tables into other files: pdf, rtf, etc.
+library(janitor) #to get the summary sum
+library(sas7bdat) ###input data
+library(finalfit) #https://cran.r-project.org/web/packages/finalfit/vignettes/export.html t
+library(expss) ###to add labels
+library(epiDisplay) ##recommended applied here crosstable, tab1
+library(summarytools) ##recommended
+library(gmodels) ##recommended
+library(magrittr)
+library(arsenal)
+library(gtsummary)
+library(kableExtra)
+options(knitr.table.format = "latex")
+
+format(Sys.Date(), '%d %B, %Y')
+#  box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
+#           client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm")
+# # 
+#  box_setwd(dir_id = 161836233301) 
+bq_auth()
+#The bigrquery package is requesting access to your Google account.
+#Select a pre-authorised account or enter '0' to obtain a new token.
+#Press Esc/Ctrl + C to cancel.
+ 1
+# #1: wuj12@nih.gov
+ project <- "nih-nci-dceg-connect-prod-6d04"
+ billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
+
+ recr.vars <- c("d_512820379","d_821247024","d_230663853","d_919254129","d_699625233","state_d_684926335","state_d_849518448", "state_d_119643471","state_d_706256705","state_d_435027713","state_d_934298480","d_827220437","d_914594314","d_471593703","state_d_158291096","d_311580100","d_914639140","d_878865966","d_167958071","state_d_684635302",
+               "d_949302066","d_536735468","d_663265240","d_976570371")
+
+# recr_var <- bq_project_query(project, query="SELECT * FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS WHERE table_name='participants_JP'")
+# recrvar <- bigrquery::bq_table_download(recr_var,bigint = "integer64")
+# 
+# 
+# nvar = floor((length(recrvar$column_name))/5) ##to define the number of variables in each sql extract from GCP
+# nvar
+# 
+# # Start column for each split data frame
+# start = seq(1,length(recrvar$column_name),nvar)
+# end <- length(recrvar$column_name)
+# 
+# recrbq <- list()
+# 
+# for (i in (1:length(start)))  {
+#   select <- paste(recrvar$column_name[start[i]:(min(start[i]+nvar-1,end))],collapse=",")
+#   tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT token,", select,"FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != \'\180583933\'\ \")",sep=" ")))
+# 
+#   recrbq[[i]] <- bq_table_download(tmp, bigint="integer64")
+# }
+
+#recr_noinact_wl <- recrbq %>% reduce(inner_join, by = "token")
+
+# recr_noinact_wl1 <- recr_noinact_wl1[,!(names(recr_noinact_wl1) %in% PII)]
+bq <- bq_project_query(project, query="SELECT Connect_ID, token, d_512820379,d_821247024,d_230663853,d_919254129,d_699625233,state_d_684926335,state_d_849518448,state_d_119643471,state_d_706256705, state_d_435027713,state_d_934298480,d_827220437,d_914594314,d_471593703,
+              state_d_158291096,d_311580100,d_914639140,d_878865966,d_167958071, d_684635302, d_100767870,
+               d_949302066,d_536735468,d_663265240,d_976570371 FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` WHERE d_512820379 != '180583933'")
+recr_noinact_wl <- bq_table_download(bq,bigint="integer64")
+
+
+  # Check that it doesn't match any non-number
+  numbers_only <- function(x) !grepl("\\D", x)
+
+ ###convert the numeric
+ recr_noinact_wl1 <- recr_noinact_wl
+ cnames <- names(recr_noinact_wl)
+ ###to check variables in recr_noinact_wl1
+ for (i in 1: length(cnames)){
+   varname <- cnames[i]
+   var<-pull(recr_noinact_wl1,varname)
+   recr_noinact_wl1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+ }
+
+# recr_noinact_wl1 <- box_read(file_id = 161836233301)
+#
+#ids <- paste0("MC000003A7",c(8985:9004))
+#recr_noinact_wl1$studyId[(recr_noinact_wl1$studyId %in% ids)] #0 existing
+#data <- recr_noinact_wl1[ which (recr_noinact_wl1$studyId %nin% ids),]
+
+#saveRDS(recr_noinact_wl1,"~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit1227.rds")
+#recr_noinact_wl1 <- readRDS("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit.rds")
+
+data <- recr_noinact_wl1[which(recr_noinact_wl1$d_512820379 != 180583933),] #0 removeal
+data <- recr_noinact_wl1[which (recr_noinact_wl1$d_821247024 != 922622075 | recr_noinact_wl1$d_512820379 !=486306141),] #320
+
+# 
+# IF RcrtSI_SHRace_v1r0 = 635279662 /*"Caucasian/White"*/  THEN RcrtSI_SHRaceEth_v1r0 = 768826601;/*white any caucasian white*/
+# ELSE IF RcrtSI_SHRace_v1r0 = 232334767 /*"Hispanic/Latino/Declined"*/ OR RcrtSI_SHRace_v1r0 = 211228524 /*"American Indian or Alaskan Native"*/
+# OR RcrtSI_SHRace_v1r0 = 308427446 /*Asian"*/OR RcrtSI_SHRace_v1r0 = 432722256 /*"Hispanic/Latino/Black"*/OR RcrtSI_SHRace_v1r0 = 232663805 /*"African American/Black"*/
+# OR RcrtSI_SHRace_v1r0 = 785578696 /*"Hispanic/Latino/White"*/ OR RcrtSI_SHRace_v1r0 = 200929978 /*"Native Hawaiian"*/ OR RcrtSI_SHRace_v1r0 = 490725843 /*"Native Hawaiian/Pacific Islander"*/
+# OR RcrtSI_SHRace_v1r0 = 965998904 /*"Pacific Islander"*/  THEN RcrtSI_SHRaceEth_v1r0 = 181769837; /*Other*/
+
+# ELSE IF RcrtSI_SHRace_v1r0 = 986445321 /*"Blank"*/ OR RcrtSI_SHRace_v1r0 = 746038746 /*"Declined"*/ OR RcrtSI_SHRace_v1r0 = 178420302 /*"Unavailable/Unknown"*/
+# THEN RcrtSI_SHRaceEth_v1r0 = 178420302;/*"Unavailable/Unknown"*/
+# ELSE IF RcrtSI_SHRace_v1r0= "NA" and RcrtES_Site_v1r0=657167265 THEN RcrtSI_SHRaceEth_v1r0 = 178420302;/*"Unavailable/Unknown"*/
+# 
+# ***for overall race;
+# IF RcrtSI_SHRaceEth_v1r0 (119643471)= 768826601 or RcrtSI_HFHSRace_v1r0 (684926335)=635279662 or  RcrtSI_Race_v1r0 (849518448)=768826601 then RcrtAll_Race_v1r0=768826601;
+# IF RcrtSI_SHRaceEth_v1r0 = 178420302 or RcrtSI_Race_v1r0=178420302 or RcrtSI_HFHSRace_v1r0 =178420302 then RcrtAll_Race_v1r0=178420302;
+# IF RcrtSI_SHRaceEth_v1r0 = 181769837 or RcrtSI_Race_v1r0= 181769837 or RcrtSI_HFHSRace_v1r0 in (401335456,232334767) then RcrtAll_Race_v1r0=181769837;
+# attrib RcrtAll_Race_v1r0 label= "Race reported" format = SiteRaceEthnFmtJW.;
+
+# 
+#          CID                         Variable Label                                                 Variable Name
+#: 119643471           Sanford Health Reported Race                                            RcrtSI_SHRace_v1r0
+#: 419709902                                   <NA>     Race Unavailable/Unknown and Ethnicity Hispanic or Latino
+#: 519402449                                   <NA>    Race Unavailable/Unknown and Ethnicity Unavailable/Unknown
+#: 684926335 Henry Ford Health System Reported Race                                          RcrtSI_HFHSRace_v1r0
+#: 849518448           Site reported race/ethnicity                                              RcrtSI_Race_v1r0
+#: 896943397                                   <NA> Race Unavailable/Unknown and Ethnicity not Hispanic or Latino
+
+
+data <- data %>% mutate(reruit_type = case_when(d_512820379 == 486306141 ~ "Active",
+                                                d_512820379 == 854703046 ~ "Passtive"),
+                        Rcrt_completion_v1r0 = case_when((d_821247024 == 875007964) ~ 104430631,
+                                                         (d_821247024 %in% c(197316935,219863910,922622075)) ~ 353358909),
+                        recrt_steps_v1r0 = case_when((d_230663853 == 104430631) ~"Never Signed In",
+                                                     (d_230663853 == 353358909 & d_919254129 == 104430631) ~ "Signed in, No Consent",
+                                                     (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 104430631) ~ "Consented, No Profile",
+                                                     (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 353358909 & d_821247024 == 875007964) ~ "Profile Verification Incomplete",
+                                                     (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 353358909 & d_821247024 %in% c(197316935,219863910,922622075)) ~ "Verification Complete"),
+                        Rcrt_Verified_v1r0 = ifelse(is.na(d_821247024) | d_821247024 != 197316935, 104430631, 353358909),
+                        
+                        race = case_when(state_d_684926335 == 635279662 | state_d_849518448 == 768826601 | state_d_119643471 == 635279662 ~ "White" ,#768826601
+          state_d_684926335 %in% c(232334767,401335456) | state_d_849518448 == 181769837 |
+                                          state_d_119643471 == 232334767| state_d_119643471  ==211228524|state_d_119643471 ==308427446| state_d_119643471  ==432722256| state_d_119643471  ==232663805| state_d_119643471  ==785578696| state_d_119643471  ==200929978| state_d_119643471  ==490725843| state_d_119643471  == 965998904 ~ "Other", #181769837
+                                         state_d_684926335 == 178420302  | state_d_849518448 ==178420302 | state_d_119643471 == 986445321| state_d_119643471  == 746038746| state_d_119643471  == 178420302 | (is.na(state_d_119643471) & d_827220437== 657167265) ~ "Unknown"),
+                      
+                        sex = case_when(state_d_706256705 == 536341288 | state_d_435027713 == 536341288 ~ "Female",
+                                        state_d_706256705 == 654207589 | state_d_435027713 == 654207589 ~ "Male",
+                                        state_d_706256705 == 830573274 ~ "Intersex or Other",
+                                        state_d_706256705 %in% c(178420302,NA) | state_d_435027713 %in% c(178420302,NA) ~ "Unknown"),
+                        age = case_when(state_d_934298480 == 124276120 ~ "40-45",
+                                        state_d_934298480 == 450985724 ~ "46-50",
+                                        state_d_934298480 == 363147933 ~ "51-55",
+                                        state_d_934298480 == 636706443 ~ "56-60",
+                                        state_d_934298480 == 771230670 ~ "61-65"),
+                        site = case_when(d_827220437 ==125001209 ~ "KPCO", 
+                                         d_827220437 == 327912200 ~ "KPGA", 
+                                         d_827220437 == 452412599 ~ "KPNW", 
+                                         d_827220437 == 303349821 ~ "Marshfield",
+                                         d_827220437 == 300267574 ~ "KPHI",
+                                         d_827220437 == 531629870 ~ "HP", 
+                                         d_827220437 == 548392715 ~ "HFHS",
+                                         d_827220437 == 657167265 ~ "SH",
+                                         d_827220437 == 809703864 ~ "UoCh", 
+                                         d_827220437 == 517700004 ~ "NIH",
+                                         d_827220437 == 181769837 ~ "Others"),
+                        
+                        verified = case_when(d_821247024 == 875007964 ~ "Not yet verified",
+                                             d_821247024 == 197316935  ~ "Verified",
+                                             d_821247024 ==  219863910 ~ "Cannot be verified",
+                                             d_821247024 ==  922622075 ~ "Duplicate",
+                                             d_821247024 ==  160161595 ~ "Outreach timed out"),
+                        
+                        Preconsent = case_when(state_d_158291096 == 104430631 ~ "No", #d_158291096	as	RcrtSI_OptOut_v1r0,
+                                               state_d_158291096 == 353358909 ~ "Yes"),
+                        SSN = case_when(d_311580100 == 353358909 ~ "Full SSN Given",
+                                        d_311580100 == 104430631 & d_914639140 == 353358909 ~ "Partial SSN Given",
+                                        d_311580100 == 104430631 & d_914639140 == 104430631 ~ "No SSN Given"),
+                        CSSigned = case_when(d_230663853 ==353358909 & d_919254129 == 104430631 ~ "Never Signed In",
+                                             d_230663853 == 104430631 ~ "Never Signed In",
+                                             d_230663853 ==353358909 & d_919254129 == 353358909 ~"Signed In, no Consent"),
+                        biocol_type = case_when(d_878865966 ==353358909 & d_167958071 == 353358909 & d_684635302 == 353358909 ~ "All",
+                                                d_878865966 ==353358909 & d_167958071 == 353358909 & d_684635302 == 104430631 ~ "Blood & Urine Only",
+                                                d_878865966 ==353358909 & d_167958071 == 104430631 & d_684635302 == 353358909 ~ "Blood & Mouthwash Only",
+                                                d_878865966 ==104430631 & d_167958071 == 353358909 & d_684635302 == 353358909 ~ "Mouthwash & Urine Only",
+                                                d_878865966 ==353358909 & d_167958071 == 104430631 & d_684635302 == 104430631 ~ "Blood Only",
+                                                d_878865966 ==104430631 & d_167958071 == 353358909 & d_684635302 == 104430631 ~ "Urine Only",
+                                                d_878865966 ==104430631 & d_167958071 == 104430631 & d_684635302 == 353358909 ~ "Mouthwash Only",
+                                                d_878865966 ==104430631 & d_167958071 == 104430631 & d_684635302 == 104430631 ~ "None"))
+
+
+data$basesvcomplt <- ifelse(data$d_949302066 %in% c(615768760,972455046, NA) ,"None",
+                            ifelse(data$d_949302066 == 231311385 & data$d_536735468 == 231311385 & data$d_663265240 == 231311385 & data$d_976570371 == 231311385, "All",
+                                   ifelse(data$d_949302066 == 231311385 & data$d_536735468 != 231311385 & data$d_663265240 != 231311385 & data$d_976570371 != 231311385 , "BOH only",
+                                          "2 or 3 sections")))
+
+data$basesvcomplt <- factor(data$basesvcomplt,levels=c("All","2 or 3 sections","BOH only","None"))
+data <- apply_labels(data,d_827220437 = "Site",#RcrtES_Site_v1r0
+                     d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209,"Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,"Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864,"National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837))
+
+#RcrtSI_SignedIn_v1r0 RcrtCS_Consented_v1r0 RcrtUP_Submitted_v1r0  Rcrt_completion_v1r0 Rcrt_Verified_v1r
+data$site <- factor(data$d_827220437,exclude=NULL,
+                    levels=c("HealthPartners", "Henry Ford Health System","Marshfield Clinic Health System",
+                             "Sanford Health", "University of Chicago Medicine","Kaiser Permanente Colorado",
+                             "Kaiser Permanente Georgia","Kaiser Permanente Hawaii","Kaiser Permanente Northwest",
+                             "National Cancer Institute","Other"))
+data <- data %>% arrange(site)
+
+data$biocol_type <- factor(data$biocol_type, levels=c("All","Blood & Urine Only","Blood & Mouthwash Only","Mouthwash & Urine Only","Blood Only","Urine Only","Mouthwash Only","None"))
+#data$Rcrt_Verified_v1r0 <- factor(data$Rcrt_Verified_v1r0,exclude=NULL)														 
+data$verified <- factor(data$verified,exclude=NULL, levels=c("Not yet verified","Verified","Cannot be verified","Duplicate","Outreach timed out"))
+
+
+
+# d_849518448	as 	RcrtSI_Race_v1r0, 
+# d_684926335	as	RcrtSI_HFHSRace_v1r0,
+# d_119643471	as 	RcrtSI_SHRace_v1r0,	
+test  <- data[,c("token","Connect_ID","d_827220437","d_821247024","d_512820379",
+                 "state_d_158291096",#RcrtSI_OptOut_v1r
+                 "d_230663853","d_919254129","d_699625233","Rcrt_Verified_v1r0","recrt_steps_v1r0",
+                 "state_d_934298480","state_d_119643471","state_d_684926335","state_d_849518448", #age,race(3)
+                  "state_d_435027713","state_d_706256705", #sex 
+                 "d_976570371", "d_949302066","d_536735468","d_663265240", #baseline survey
+                 "d_311580100", "d_914639140", #SSN
+                 "d_878865966","d_167958071","d_684635302"#biospecimen
+                 )]  ###active with UP as yes: n=3006
+
+process <- c("d_230663853","d_919254129","d_699625233","Rcrt_completion_v1r0","Rcrt_Verified_v1r0")
+
+recr_process_long <- NULL
+for (i in 1:length(process)){
+  
+  tmp<- data[,c("token","Connect_ID","d_827220437")]
+  tmp$recr_Process_v1r0 <- data[,which(colnames(data) == process[i])]
+  tmp$stage <- i
+  tmp <- tmp[which(tmp$stage ==1 |(tmp$stage >1 & tmp$recr_Process_v1r0==353358909)),]
+  recr_process_long <- rbind(tmp,recr_process_long)
+
+}
+recr_process_long <- recr_process_long %>% mutate(stage_new = case_when(recr_Process_v1r0 == 104430631 & stage ==1  ~ 0,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 1  ~ 1,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 2  ~ 2,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 3  ~ 3,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 4  ~ 4,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 5  ~ 5))
+
+recr_process_long <- apply_labels(recr_process_long,
+                            d_827220437 = "Site",#RcrtES_Site_v1r0
+                            d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209,
+                                            "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,
+                                            "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864,
+                                            "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837),
+                            
+                            stage_new = "Work Flow",
+                            stage_new = c("Never Signed In" = 0,"Signed in" = 1,  "Consented"=  2, "Profile Done" = 3,"Verification Complete" = 4, "Verified"= 5 ))
+
+recr_process_long$stage1 <- factor(recr_process_long$stage_new,exclude=NULL,levels=c("Never Signed In","Signed in","Consented", "Profile Done","Verification Complete", "Verified"))
+recr_process_long$site <- factor(recr_process_long$d_827220437,exclude=NULL)  
+
+recr_count <- recr_process_long[which(recr_process_long$d_827220437>0),] %>%
+  group_by(stage_new,d_827220437) %>%
+  dplyr::summarise(count=n())
+
+recr_count <- apply_labels(recr_count,                        d_827220437 = "Site",#RcrtES_Site_v1r0
+                            d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209,
+                                            "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,
+                                            "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864,
+                                            "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837),
+                            
+                            stage_new = "Work Flow",
+                            stage_new = c("Never Signed In" = 0,"Signed in" = 1,  "Consented"=  2, "Profile Done" = 3,"Verification Complete" = 4, "Verified"= 5 ))
+
+
+recr_count$stage <- factor(recr_count$stage_new,exclude=NULL)
+recr_count$stage <- factor(recr_count$stage_new,labels=c("Never Signed In","Signed in", "Consented", "Profile Done","Verification Complete", "Verified"))
+recr_count$site <- factor(recr_count$d_827220437,exclude=NULL)
+
+recr_count1 <- NULL
+ for(stage in unique(recr_count$stage)){
+   
+     recr_count1  <- dplyr::filter(recr_count, stage == stage) %>% arrange(stage,factor(d_827220437)) %>% mutate(cum.count=cumsum(count),
+                                                                                 label.count=cumsum(count)-0.1*count)
+     
+   }
+```
+
+
+```{r, eval=TRUE,echo=FALSE,include=FALSE,results='hold'}
+data <- data[which(data$d_512820379 != 180583933),]
+data <- data[which (data$d_821247024 != 922622075 | data$d_512820379 !=486306141),] #248
+data$site <- droplevels(data$site)
+data<-data[order(data$site),]
+
+recruittypetotal <- as.data.frame(tab1(data[which(data$d_827220437>0),]$reruit_type)[[2]]) 
+recruittypetotal$Frequency <- format(recruittypetotal$Frequency,big.mark = ",")
+recruittypetotal$`Recruitment Type` <- rownames(recruittypetotal)
+
+
+###Table 2. Cumulative Status Total
+#a. overall verified status by site
+   #option1
+data$site <- droplevels(data$site)
+data <- data[order(data$site),]
+  recr_process_step <- NULL
+  for (i in 1:length(process)){
+    
+    tmp<- data[which(data$d_827220437>0),c("token","Connect_ID","site",process[i])]
+    tmp <- dplyr::rename(tmp, recr_Process_v1r0 =process[i])
+    
+   # tmp$recr_Process_v1r0 <- tmp[which(data$d_827220437>0),which(colnames(data) == )] 
+    tmp$stage <- i  
+    tmp <- tmp[which(tmp$stage ==1 |(tmp$stage >1 & tmp$recr_Process_v1r0==353358909)),] 
+    step <- tmp %>% group_by(site,recr_Process_v1r0) %>% dplyr::summarise(count=n())
+    step$stage <- i
+    recr_process_step <- rbind(step,recr_process_step)
+    
+  }
+  recr_process_step$stage_new <- ifelse(recr_process_step$recr_Process_v1r0 == 104430631, 0, recr_process_step$stage)
+  
+  recr_step <- dcast(recr_process_step, site ~ stage_new, value.var = "count")
+  colnames(recr_step)[c(2:7)] <- paste("step",colnames(recr_step)[c(2:7)],sep="_")
+  total <- as.data.frame(t(apply(recr_step[,c(2:7)],2,sum)))
+  total$site <- " Total"  
+  recr_step <- rbind(recr_step,total)
+  
+  recr_step$total <- format(recr_step$step_0 +recr_step$step_1,big.mark=",")
+ 
+  recr_step_pct <- recr_step %>% mutate(freq_pct1 = paste0(format(step_1,big.mark=","), "  (", round(100*step_1/(step_1+step_0),2), " %)"),
+                                        freq_pct2 = paste0(format(step_2,big.mark=","), "  (", round(100*step_2/step_1,2), " %)"),
+                                        freq_pct3 = paste0(format(step_3,big.mark=","), " (", round(100*step_3/step_2,2)," %)"),
+                                        freq_pct4 = paste0(format(step_4,big.mark=",")," (", round(100*step_4/step_3,2)," %)"),
+                                        freq_pct5 = paste0(format(step_5,big.mark=",")," (", round(100*step_5/step_4,2)," %)"))
+  
+  colnames(recr_step_pct)[c(1,8:13)]  <-  c("Site","Total Recruites","Signed In","Consented","Profile Done","Verification Complete","Verified")
+## to create the total cumulative table
+  cumulative_all <- recr_step_pct[,c(1,8:13)]
+
+## Table 3. Cumulative Status for Active Only
+  active <- data[which(data$d_512820379 ==486306141),]
+  passive <- data[which(data$d_512820379 == 854703046),]
+  
+       test <- active
+       test <- passive
+  ## to apply the for loop to with the tested data for the table.
+       tests <- list(active,passive)
+       outs<- list()
+
+   for (tb in 1:length(tests)) {
+     test=data.frame(tests[tb])
+      recr_process_step<-NULL
+      for (i in 1:length(process)){
+      tmp<- test[which(test$d_827220437>0),c("token","Connect_ID","site",process[i])]
+      tmp <- dplyr::rename(tmp, recr_Process_v1r0 =process[i])
+
+      tmp$stage <- i  
+      tmp <- tmp[which(tmp$stage ==1 |(tmp$stage >1 & tmp$recr_Process_v1r0==353358909)),] 
+      step <- tmp %>% group_by(site,recr_Process_v1r0) %>% dplyr::summarise(count=n())
+      step$stage <- i
+      recr_process_step <- rbind(step,recr_process_step)
+    }
+    recr_process_step$stage_new <- ifelse(recr_process_step$recr_Process_v1r0 == 104430631, 0, recr_process_step$stage)
+  
+    recr_step <- dcast(recr_process_step , site ~ stage_new, value.var = "count")
+    n<- ncol(recr_step)
+ 
+    colnames(recr_step)[c(2:n)] <- paste("step",colnames(recr_step)[c(2:n)],sep="_")
+    total <- as.data.frame(t(apply(recr_step[,-1],2,sum)))
+    total$site <- " Total"  
+    recr_step <- rbind(recr_step,total)
+    if(n==6){recr_step$step_0 <- 0}
+    recr_step$total <- format(recr_step$step_0 + recr_step$step_1,big.mark = ",")
+    
+    recr_step_pct <- recr_step %>% mutate(freq_pct1 = paste0(step_1," (",round(100*step_1/(step_1+step_0),2)," %)"),
+                                          freq_pct2 = paste0(step_2," (",round(100*step_2/step_1,2)," %)"),
+                                          freq_pct3 = paste0(step_3," (",round(100*step_3/step_2,2)," %)"),
+                                          freq_pct4 = paste0(step_4," (",round(100*step_4/step_3,2)," %)"),
+                                          freq_pct5 = paste0(step_5," (",round(100*step_5/step_4,2)," %)"))
+    
+    colnames(recr_step_pct)[c(9:13)]  <-  c("Signed In","Consented","Profile Done","Verification Complete","Verified")
+    ##to create the total cumulative table
+ 
+    outs[[tb]] <- recr_step_pct
+   } 
+       
+       cumulative_active <- as.data.frame(outs[[1]])
+	   recr_step_pct[,c(1,8:13)] 
+	     cumulative_passive <- as.data.frame(outs[[2]])
+	     recr_step_pct[,c(1,8:13)] 
+
+#Table 4. Current Status in Workflow Total
+ data$recrt_steps_v1r0 <-factor(data$recrt_steps_v1r0,levels=c("Never Signed In","Signed in, No Consent","Consented, No Profile", "Profile Verification Incomplete","Verification Complete"))
+
+    work_flow_a <- data  %>% filter(d_827220437>0) %>% select(site, recrt_steps_v1r0)  %>% arrange(site,recrt_steps_v1r0) %>% 
+      mutate(site=droplevels(site)) %>% tbl_cross(
+       row = site,
+       col = recrt_steps_v1r0,
+       percent = "column",
+       missing="no",
+       missing_text = "0",
+       digits=c(0,2),
+       label= list(recrt_steps_v1r0 ~ "Work Flow",site~"Site"),
+       margin_text="Total Recruits") 
+    
+
+    work_flow_a[["table_body"]]$stat_0 <- sapply(strsplit(work_flow_a[["table_body"]]$stat_0," "),"[",1)
+   
+    work_flow_a <- work_flow_a%>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 5. Current Status in Workflow All Recruits") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+    work_flow_act <- data[which(data$d_512820379 == 486306141),] %>% mutate(site=droplevels(site)) %>% 
+      dplyr::arrange(site,recrt_steps_v1r0) %>% select(site, recrt_steps_v1r0) %>% tbl_cross(
+      row = site,
+      col = recrt_steps_v1r0,
+      label = list(recrt_steps_v1r0~ "Work Flow",site~"Site"),
+      percent = "column",
+      digits=c(0,2),
+      margin_text = "Total Active Rescruits",
+      missing="no",
+      missing_text = "0 ( 0%)") 
+    
+    work_flow_act[["table_body"]]$stat_0 <- sapply(strsplit(work_flow_act[["table_body"]]$stat_0," "),"[",1)
+    work_flow_act <- work_flow_act%>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 6. Current Status in Workflow Active Recruits Only") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+  
+    work_flow_pass <- data[which(data$d_512820379 == 854703046 & data$d_827220437>0),] %>% 
+      dplyr::arrange(site,recrt_steps_v1r0) %>% select(site, recrt_steps_v1r0) %>% tbl_cross(
+      row = site,
+      col = recrt_steps_v1r0,
+      label = list(recrt_steps_v1r0  ~ "Work Flow", site~"Site"),
+      percent = "column",
+      digits=c(0,2),
+      margin_text="Total Passive Recruits",
+      missing="ifany",
+      missing_text = "0 (0%)") 
+    
+    work_flow_pass[["table_body"]]$stat_0 <- sapply(strsplit(work_flow_pass[["table_body"]]$stat_0," "),"[",1)
+    work_flow_pass[["table_body"]]$stat_1 <- gsub("NA", "0", work_flow_pass[["table_body"]]$stat_1)
+    work_flow_pass <- work_flow_pass %>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 7. Current Status in Workflow Passive Recruits Only") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+    
+##the Table 8 profile complete
+ data$verified <- factor(data$verified,exclude=NULL, levels=c("Not yet verified","Verified","Cannot be verified","Duplicate","Outreach timed out"))
+  UP_type_verified<- NULL
+  for(site in unique(data$site)){
+    
+    UP_type_verified  <- filter(data[which(data$d_827220437>0 & data$d_699625233 == 353358909),],d_512820379== 486306141 & site==site ) %>%
+      arrange(site,factor(Rcrt_Verified_v1r0)) 
+  }
+  
+  UP_active_verified <- UP_type_verified %>% 
+    group_by(verified,site) %>% dplyr::summarise(count=n())
+  
+  UP_active_verified <- UP_active_verified %>% arrange(verified,site) %>% mutate(cum.count=cumsum(count))
+       
+  Table8_profilecomplete <- data %>% filter(d_827220437>0 & d_699625233 == 353358909 & d_512820379== 486306141) %>% 
+    select(verified,site) %>% tbl_cross(row = site,
+    col = verified,
+    label = verified ~ "Verification Status with Profile Completion",
+    percent = "row",
+    digits=c(0,2))
+  
+  
+  Table8_profilecomplete[["table_body"]]$stat_0 <- sapply(strsplit(Table8_profilecomplete[["table_body"]]$stat_0," "),"[",1)
+  
+  Table8_profilecomplete <- Table8_profilecomplete%>%
+  #bold_labels() %>%
+  #italicize_levels() %>% 
+  modify_header() %>%
+  modify_caption("Table 8a. Active Recruits Verification Status with Profile Completion") %>%
+  as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+  
+    Table8b_pro_pas <- data %>% filter(d_827220437>0 & d_699625233 == 353358909 & d_512820379==854703046) %>% 
+          select(verified,site) %>% tbl_cross(   row = site,
+    col = verified,
+    label =list(verified ~ "Verification Status with Profile Completion",site~"Site"), 
+    percent = "row",
+    digits=c(0,2)) 
+    
+    Table8b_pro_pas[["table_body"]]$stat_0 <- sapply(strsplit(Table8b_pro_pas[["table_body"]]$stat_0," "),"[",1)
+    Table8b_pro_pas <- Table8b_pro_pas %>%
+    #bold_labels() %>%
+    #italicize_levels() %>% 
+    modify_header() %>%
+    modify_caption("Table 8b. Passive Recruits Verifaction Status with Profile Completion") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+
+                                                                         
+#Table 8.  Pre-Consent Opt-Out Among Active Only
+#   158291096	Pre-consent Opt-out	Pre-consent Opt-out	RcrtSI_OptOut_v1r0  
+#  699625233	Autogenerated flag when User Profile submitted	User Profile submitted	RcrtUP_Submitted_v1r0  
+    
+    Table8a_opt_act <- data %>% filter(d_512820379==486306141) %>% select(site, Preconsent) %>% tbl_cross(
+       row = site,
+       col = Preconsent,
+       label = list(Preconsent ~ "Pre-Consent Opt-Out",site~"Site"),
+       percent = "column",
+       digits=c(0,2))
+    
+    Table8a_opt_act[["table_body"]]$stat_0 <- sapply(strsplit(Table8a_opt_act[["table_body"]]$stat_0," "),"[",1)
+    Table8a_opt_act <-  Table8a_opt_act    %>%  
+      modify_header() %>%
+      modify_caption("Table 9.  Pre-Consent Opt-Out among Active Only") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+   
+#Table 9.  Timing of Pre-consent Opt Out Among Active Recruits**") %>%	  
+    precst_act <- data[which(data$d_512820379==486306141 &  data$state_d_158291096 == 353358909),] %>% 
+      mutate(CSSigned = case_when(d_230663853 ==353358909 & d_919254129 == 104430631 ~ "Never Signed In",
+                                  d_230663853 == 104430631 ~ "Never Signed In",
+                                  d_230663853 ==353358909 & d_919254129 == 353358909 ~"Signed In, no Consent")) %>%
+       group_by(CSSigned,site ) %>% dplyr::summarise(count=n())
+    precst_act_w <- dcast(precst_act,  site ~CSSigned, value.var = "count") 
+    #precst_act_w1 <- rbind(precst_act_w, as.table(c("  Total",sum(precst_act_w$`Never Signed In`),sum(!is.na(precst_act_w$`Signed In, no Consent`))))
+    
+                           
+    active <- as.data.frame(tab1(data[which(data$d_512820379==486306141),]$site)[[2]] )
+    active$site <- trimws(rownames(active))
+    active$order <- seq(nrow(active))
+    
+   table_precst_act <- merge(active,precst_act_w, by ="site",all.x=TRUE)
+   table_precst_act <- table_precst_act[order(table_precst_act$order),]
+   
+   
+   table_precst_act$`Never Signed In` <-ifelse(table_precst_act$site != "Total" & is.na(table_precst_act$`Never Signed In`), 0,
+                                           ifelse(table_precst_act$site !="Total" & table_precst_act$`Never Signed In` >0,table_precst_act$`Never Signed In`,
+                                           sum(precst_act_w$`Never Signed In`) ))
+   
+     
+   table_precst_act$`Signed In, no Consent` <-ifelse(table_precst_act$site != "Total" & is.na(table_precst_act$`Signed In, no Consent`), 0,
+                                               ifelse(table_precst_act$site !="Total" & table_precst_act$`Signed In, no Consent` >=0, table_precst_act$`Signed In, no Consent`,
+                                                      sum(precst_act_w$`Signed In, no Consent`,na.rm=TRUE)))  
+
+   
+table_precst_act$Npct.Never.Signed.In <-  paste0(table_precst_act$`Never Signed In`," (", round(100*table_precst_act$`Never Signed In`/table_precst_act$Frequency, 2)," %)")
+
+table_precst_act$Npct.Signed.In.no.Consent <-  paste0(table_precst_act$`Signed In, no Consent`," (", round(100*table_precst_act$`Signed In, no Consent`/table_precst_act$Frequency, 2)," %)")
+#table_precst_act <- table_precst_act[which(table_precst_act$site !="NA."),]
+#table_precst_act$site <- ifelse(table_precst_act$site=="X  Total", "Total", table_precst_act$site)
+  table_precst_act <- format(table_precst_act,big.mark=",")
+  
+ Table9_precst_act <- table_precst_act[,c(1,8,9,2)]
+ colnames(Table9_precst_act) <- c("Site","Never Signed In","Signed In, no Consent","Total Active Recruits")
+
+    Table9_precst_act1 <- data %>% dplyr::filter(d_512820379==486306141& state_d_158291096 == 353358909) %>% 
+      dplyr:: select(site, CSSigned) %>% tbl_cross(
+        row = site,
+        col = CSSigned,
+        label = list(CSSigned ~ "Preconsent after Opt Out",site~"Site"),
+        percent = "row",
+        digits = c(0,2),
+        missing = "ifany",
+        missing_text = "0 (0 %)",
+        margin_text = "Total Preconsent after Opt Out") 
+ 
+  
+    Table9_precst_act1[["table_body"]]$stat_0 <- sapply(strsplit(Table9_precst_act1[["table_body"]]$stat_0," "),"[",1) 
+
+    
+ Table9_precst_act1 <- Table9_precst_act1 %>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 10b.  Pre-Consent Opt-Out among Active Only") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+
+ Table9_precst_act1 <- gsub("NA","0", Table9_precst_act1 )  
+ 
+#Table 10.  Verification Status Among Those That Have Submitted User Profile
+    Table10_profile <- data %>% filter(d_699625233==353358909) %>%  
+      dplyr::select(site, verified) %>% tbl_cross(
+        row = site,
+        col = verified,
+        label = list(verified ~ "Verification Status",site~"Site"),
+        percent = "row",
+        digits = c(0,2),
+        missing = "ifany",
+        missing_text = "Unknown",
+        margin_text = "Total Submitted User Profile") 
+    
+    Table10_profile[["table_body"]]$stat_0 <- sapply(strsplit(Table10_profile[["table_body"]]$stat_0," "),"[",1) 
+    
+ Table10_profile <- Table10_profile%>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 11. Verification Status among Those That Have Submitted User Profile") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+    #Timing of Pre-consent Opt Out among Active Recruits
+ 
+#Table 11. Age of Verified Participants
+    table11_age <- data[which(data$d_821247024 == 197316935),] %>% 
+               select(site, age) %>% tbl_cross(
+                      row = site,
+                    col = age,
+                    label = list(age~"Age",site ~ "Site"),
+                  percent = "row",
+                  digits=c(0,2)) 
+    
+    table11_age[["table_body"]]$stat_0 <- sapply(strsplit(table11_age[["table_body"]]$stat_0," "),"[",1) 
+    
+    table11_age <- table11_age%>%
+           #bold_labels() %>%
+           #italicize_levels() %>% 
+           modify_header() %>%
+           modify_caption("Table 12. Age of Verified Participants") %>%
+            as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+			
+#Tabel 12. Race of Verified Participants
+    data$race <- factor(data$race, levels=c("White","Other","Unknown"))
+    table12_race <- data[which(data$d_821247024 == 197316935),] %>% select(site, race) %>% tbl_cross(
+      row = site,
+      col = race,
+      label = list(race~"Race",site ~ "Site"),
+      percent = "row",
+      digits=c(0,2)) 
+    
+    table12_race[["table_body"]]$stat_0 <- sapply(strsplit(table12_race[["table_body"]]$stat_0," "),"[",1) 
+    
+    table12_race <- table12_race %>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 13. Race of Verified Participants") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+
+			
+#Table 13. Sex of Verified Participants
+  data$sex <-factor(data$sex,levels=c("Female","Male", "Intersex or Other","Unknown"))
+    
+   table13 <- data[which(data$d_821247024 == 197316935),] %>% select(site, sex) %>% dplyr::arrange(site,sex) %>%
+     tbl_cross(
+      row = site,
+      col = sex,
+      label = list(sex~"Sex",site ~ "Site"),
+      percent = "row",
+      digits=c(0,2),
+      margin_text="Total Verified Participants") 
+   
+   
+   table13[["table_body"]]$stat_0 <- sapply(strsplit(table13[["table_body"]]$stat_0," "),"[",1)  
+   table13 <- table13 %>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 14. Sex of Verified Participants") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+    
+#Table 14. Completion of Initial Survey of Verified Participants
+  data$basesvcomplt <- factor(data$basesvcomplt, levels=c("All","2 or 3 sections", "BOH only","None"))
+  data$site <- droplevels(data$site)
+   table14 <- data[which(data$d_821247024 == 197316935),] %>% mutate(site=droplevels(site)) %>% select(site, basesvcomplt) %>% dplyr::arrange(site,basesvcomplt) %>% tbl_cross(
+     row = site,
+     col = basesvcomplt,
+     label = list(basesvcomplt ~ "Baseline Initial Survey Completion",site~"Site"),
+     percent = "row",
+     digits=c(0,2),
+     margin_text="Total Verified Recruits") 
+   
+   table14[["table_body"]]$stat_0 <- sapply(strsplit(table14[["table_body"]]$stat_0," "),"[",1)
+    
+    table14 <- table14%>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header() %>%
+     modify_caption("Table 15. Completion of Initial Survey by Verified Participants") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+#Table 15. SSN of Verified Participants
+   data$SSN <- factor(data$SSN,levels=c("Full SSN Given","Partial SSN Given","No SSN Given"),exclude=NULL,order=TRUE)
+   table15 <- data[which(data$d_821247024 == 197316935),] %>% select(site, SSN) %>% tbl_cross(
+     row = site,
+     col = SSN,
+     percent = "row",
+     label=site~"Site",
+     digits=c(0,2),
+     margin_text="Total Verified Recruits") 
+   
+   table15[["table_body"]]$stat_0 <- sapply(strsplit(table15[["table_body"]]$stat_0," "),"[",1)
+    
+   table15 <- table15 %>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header() %>%
+     modify_caption("Table 16. SSN of Verified Participants") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+#Table 16. Age of All Records
+   table16_ageall <- data[which(data$d_827220437>0),] %>% select(site, age) %>% tbl_cross(
+     row = site,
+     col = age,
+     label = list(age~ "Age",site ~ "Site"),
+     percent = "row",
+     digits=c(0,2),
+     margin_text="Total Verified Recruits")
+   
+   table16_ageall[["table_body"]]$stat_0 <- sapply(strsplit(table16_ageall[["table_body"]]$stat_0," "),"[",1)
+    
+   table16_ageall <- table16_ageall%>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header() %>%
+     modify_caption("Table 17. Age of All Records") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+#Table 17. Race of All Records
+   table17_raceall <- data[which(data$d_827220437>0),] %>% select(site, race) %>% tbl_cross(
+     row = site,
+     col = race,
+     label = list(race~"Race",site ~ "Site"),
+     percent = "row",
+     digits=c(0,2),
+     margin_text="Total Recruits") 
+   
+   table17_raceall[["table_body"]]$stat_0 <- sapply(strsplit(table17_raceall[["table_body"]]$stat_0," "),"[",1) 
+    
+   table17_raceall <- table17_raceall %>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header() %>%
+     modify_caption("Table 18. Race of All Records") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE)   
+    
+#Table 18. Sex of All Records
+   table18_sexall <- data[which(data$d_827220437>0),] %>% select(site, sex) %>% 
+     dplyr::arrange(site,sex) %>% tbl_cross(
+     row = site,
+     col = sex,
+     label = list(sex~"Sex",site ~ "Site"),
+     percent = "row",
+     digits=c(0,2),
+     margin_text="Total Recruits")
+   
+   table18_sexall[["table_body"]]$stat_0 <- sapply(strsplit(table18_sexall[["table_body"]]$stat_0," "),"[",1) 
+    
+   table18_sexall <- table18_sexall%>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header(label ~ "Sex") %>%
+     modify_caption("Table 19. Sex of All Records") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE)    
+    
+#Table 19. All Records by Site
+   
+   data <- data %>% 
+     mutate(reruit_type = case_when(d_512820379 == 486306141 ~ "Active",
+                                    d_512820379 == 854703046 ~ "Passtive")) 
+   
+   table19_recrall <- data[which(data$d_827220437>0),] %>%
+     dplyr::select(site, reruit_type) %>% tbl_cross(
+     row = site,
+     col = reruit_type,
+     label = list(reruit_type ~ "Recruitment type",site ~ "Site"),
+     percent = "row",
+     digits=c(0,2),
+     margin_text="Total Recruits")
+   
+   table19_recrall[["table_body"]]$stat_0 <- sapply(strsplit(table19_recrall[["table_body"]]$stat_0," "),"[",1) 
+    
+   table19_recrall <- table19_recrall %>%
+     #bold_labels() %>%
+     #italicize_levels() %>% 
+     modify_header() %>%
+     modify_caption("Table 19. All Records by Site") %>%
+     as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+	 
+#Table 20. Verified Participants and Response Ratio
+# active respons rate:where %= (N active verified/N active recruits)*100
+# passive response rate where %=(N passive verified/N passive recruits)*100
+# the total response rate: where %=(N Total Verified/N Total recruits)*100   
+  ###the total active recruits: active recruits:
+   # active respons rate:where %= (N active verified/N active recruits)*100
+   # passive response rate where %=(N passive verified/N active recruits)*100
+   # the total response rate: where %=(N Total Verified/N active recruits)*100   
+
+ 
+   verfied_types <- data %>% dplyr::filter(Rcrt_Verified_v1r0 == 353358909 & d_827220437>0) %>% 
+     group_by(site,reruit_type) %>% dplyr::summarize(count=n())
+   
+   verified <- dcast(verfied_types, site ~ reruit_type, value.var = "count")
+   
+  active_recruits <- cumulative_active[,c("site","total")]
+  active_recruits$total <- as.numeric(gsub(",", "", active_recruits$total))
+   
+    cumu_response.rate <-merge(active_recruits,verified, by="site",all.x=TRUE)
+  
+    
+    cumu_response.rate$active.response.rate <- ifelse(cumu_response.rate$site ==" Total",round(100*sum(verified$Active)/cumu_response.rate$total,2), round(100*cumu_response.rate$Active/as.numeric(cumu_response.rate$total),2))
+    
+    cumu_response.rate$passive.response.rate <- ifelse(cumu_response.rate$site ==" Total",round(100*sum(verified$Passtive)/cumu_response.rate$total,2),
+                                                       round(100*cumu_response.rate$Passtive/cumu_response.rate$total,2))
+    
+    cumu_response.rate$Active.Response <- ifelse(cumu_response.rate$site !=" Total", paste0(format(cumu_response.rate$Active,big.mark=","), " (",cumu_response.rate$active.response.rate, "%)"), paste0(format(sum(verified$Active),big.mark=","), " (",cumu_response.rate$active.response.rate,"%)"))
+    
+    cumu_response.rate$Passive.Response <- ifelse(cumu_response.rate$site !=" Total", paste0(format(cumu_response.rate$Passtive,big.mark=","), " (",cumu_response.rate$passive.response.rate,"%)"), paste0(format(sum(verified$Passtive),big.mark=","), " (",cumu_response.rate$passive.response.rate, "%)"))
+    
+    cumu_response.rate$Total.Response <- ifelse(cumu_response.rate$site !=" Total", paste0(format(cumu_response.rate$Passtive + cumu_response.rate$Active, big.mark=","), " (",cumu_response.rate$passive.response.rate + cumu_response.rate$active.response.rate,"%)"), paste0(format(sum(verified$Passtive+verified$Active),big.mark=","), " (",cumu_response.rate$passive.response.rate + cumu_response.rate$active.response.rate,"%)"))
+    cumu_response.rate$total <- format(cumu_response.rate$total, big.mark=",") 
+    colnames(cumu_response.rate)[2] <- "Total Active Recruits"
+   Table25_response.rate<-  cumu_response.rate[,c(1,7:9,2)]
+   
+
+ #Table 21.Completed Baseline Survey and Sample among Verified Participants and Response Ratio
+   #   d_878865966	as	BioFin_BaseBloodCol_v1r0, /*Baseline Blood Collected*/
+   #   d_167958071	as	BioFin_BaseUrineCol_v1r0, /*Baseline Urine collected*/
+   #   d_684635302	as	BioFin_BaseMouthCol_v1r0, /*	Baseline MW Collected*/
+   
+   data$survey_complete <- ifelse(data$basesvcomplt == "All" & data$d_878865966 == 353358909 & data$d_167958071 == 353358909 & data$d_684635302 == 353358909 ,"Yes","No")
+   data$survey_complete <- factor(data$survey_complete,levels=c("Yes","No"),order=TRUE)
+  table21_surveycomplt <- data %>% filter(d_821247024 == 197316935) %>% 
+   dplyr::select(site, survey_complete) %>% tbl_cross(
+     row = site,
+     col = survey_complete,
+     label = list(survey_complete ~ "Completion of Baseline Survey and Sample Collections",site~"Site"),
+     percent = "row",
+     digits=c(0,2))
+  
+  table21_surveycomplt[["table_body"]]$stat_0 <- sapply(strsplit(table21_surveycomplt[["table_body"]]$stat_0," "),"[",1) 
+    
+  table21_surveycomplt <- table21_surveycomplt %>%
+    #bold_labels() %>%
+    #italicize_levels() %>% 
+    modify_header() %>%
+    modify_caption("Table 22. Completed Baseline Survey and Sample among Verified Participants and Completion Ratio") %>%
+    as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+	
+#Table 22. Baseline Biospecimen Collected among Verified Participants
+    table22_biocol <-  data %>% filter(d_821247024 == 197316935) %>% 
+      dplyr::select(site, biocol_type) %>% tbl_cross(
+        row = site,
+        col = biocol_type,
+        label = list(biocol_type ~ "Sample Collections",site="Site"),
+        percent = "row",
+        digits=c(0,2))
+    
+    table22_biocol[["table_body"]]$stat_0 <- sapply(strsplit(table22_biocol[["table_body"]]$stat_0," "),"[",1) 
+    
+    table22_biocol <- table22_biocol %>%
+      #bold_labels() %>%
+      #italicize_levels() %>% 
+      modify_header() %>%
+      modify_caption("Table 23. Baseline Biospecimen Collected among Verified Participants") %>%
+      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
+    
+    
+process <- c("d_230663853","d_919254129","d_699625233","Rcrt_completion_v1r0","Rcrt_Verified_v1r0")
+
+recr_process_long <- NULL
+for (i in 1:length(process)){
+  
+  tmp<- data[,c("token","Connect_ID","d_827220437")]
+  tmp$recr_Process_v1r0 <- data[,which(colnames(data) == process[i])]
+  tmp$stage <- i
+  tmp <- tmp[which(tmp$stage ==1 |(tmp$stage >1 & tmp$recr_Process_v1r0==353358909)),]
+  recr_process_long <- rbind(tmp,recr_process_long)
+
+}
+recr_process_long <- recr_process_long %>% mutate(stage_new = case_when(recr_Process_v1r0 == 104430631 & stage ==1  ~ 0,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 1  ~ 1,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 2  ~ 2,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 3  ~ 3,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 4  ~ 4,
+                                                                        recr_Process_v1r0 == 353358909 & stage == 5  ~ 5))
+
+recr_process_long <- apply_labels(recr_process_long,
+                            d_827220437 = "Site",#RcrtES_Site_v1r0
+                            d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209,
+                                            "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,
+                                            "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864,
+                                            "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837),
+                            
+                            stage_new = "Work Flow",
+                            stage_new = c("Never Signed In" = 0,"Signed in" = 1,  "Consented"=  2, "Profile Done" = 3,"Verification Complete" = 4, "Verified"= 5 ))
+
+recr_process_long$stage <- factor(recr_process_long$stage_new,exclude=NULL)
+recr_process_long$site <- factor(recr_process_long$d_827220437,exclude=NULL)  
+
+recr_count <- recr_process_long[which(recr_process_long$d_827220437>0),] %>%
+  group_by(stage_new,d_827220437) %>%
+  dplyr::summarise(count=n())
+
+recr_count$stage <- factor(as.factor(recr_count$stage_new),labels=c("Never Signed In","Signed in", "Consented", "Profile Done","Verification Complete", "Verified"))
+recr_count <- apply_labels(recr_count,                        d_827220437 = "Site",#RcrtES_Site_v1r0
+                            d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209,
+                                            "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,
+                                            "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864,
+                                            "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837),
+                            
+                            stage_new = "Work Flow",
+                            stage_new = c("Never Signed In" = 0,"Signed in" = 1,  "Consented"=  2, "Profile Done" = 3,"Verification Complete" = 4, "Verified"= 5 ))
+
+recr_count$stage <- factor(recr_count$stage_new,exclude=NULL)
+recr_count$site <- factor(recr_count$d_827220437,exclude=NULL)
+colnames(recr_count)
+recr_step <- reshape(recr_count,v.names="count",  idvar = "d_827220437", timevar = "stage_new",direction = "wide")
+
+recr_count1 <- NULL
+ for(stage in unique(recr_count$stage)){
+   
+     recr_count1 <- filter(recr_count, stage == stage) %>% arrange(factor(d_827220437)) %>% mutate(cum.count=cumsum(count),
+                                                                                 label.count=cumsum(count)-0.1*count)
+ }
+
+data$verified <- factor(data$verified,exclude=NULL, levels=c("Not yet verified","Verified","Cannot be verified","Duplicate","Outreach timed out"))
+#Fig2
+  UP_type_verified<- NULL
+  for(site in unique(data$site)){
+    
+    UP_type_verified  <- filter(data[which(data$d_827220437>0 & data$d_699625233 == 353358909),],d_512820379== 486306141 & site==site ) %>%
+      arrange(site,factor(Rcrt_Verified_v1r0)) 
+  }
+  
+  UP_active_verified <- UP_type_verified %>% 
+    group_by(verified,site) %>% dplyr::summarise(count=n())
+  
+  UP_active_verified <- UP_active_verified %>% arrange(verified,site) %>% mutate(cum.count=cumsum(count),
+                                                                                    label.count=cumsum(count)-0.1*count)
+
+```
+
+```{r,include=FALSE,fig.cap='Figure 1'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#set and order the colors consistent with site names
+
+mycolors <- c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2","grey")
+names(mycolors) <- levels(recr_count1$site)
+
+Fig1 <-  ggplot(recr_count1[which(recr_count1$stage_new >0 ),], aes(x = stage, y = count,fill=fct_rev(site))) + 
+  geom_bar(stat="identity",na.rm=TRUE)+ 
+  scale_colour_manual(values= mycolors)+
+  scale_fill_manual(values= mycolors,name="Site")+
+  geom_text(aes(y=label.count, label=count),color="black",vjust=1.5,size=3.0) + labs(x = "", y = "# Participants") + 
+  stat_summary(fun.y = sum, aes(label = ..y.., group = stage_new), geom = "text",vjust = -.2) +
+  ggtitle("Fig 1. Cumulative Status of Recruitment (Active and Passive)") + 
+  theme(panel.background = element_blank(),
+        legend.title = element_text(size=6),
+        axis.line = element_line(size=0.2),
+        axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
+        plot.title = element_text(hjust = 0.5,size = 12, face = "bold"),
+        #legend.position = c(.8, 0.9),
+        legend.margin = margin(1, 1, 3, 1))
+
+```
+
+```{r, include=FALSE,fig.cap='Figure 2'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+  data$verified <- factor(data$verified,exclude=NULL, levels=c("Not yet verified","Verified","Cannot be verified","Duplicate","Outreach timed out"))
+
+  UP_type_verified<- NULL
+  for(site in unique(data$site)){
+    
+    UP_type_verified  <- filter(data[which(data$d_827220437>0 & data$d_699625233 == 353358909),],d_512820379== 486306141 & site==site ) %>%
+      arrange(site,factor(Rcrt_Verified_v1r0)) 
+  }
+  
+  UP_active_verified <- UP_type_verified %>% 
+    group_by(verified,site) %>% dplyr::summarise(count=n())
+  
+  UP_active_verified <- UP_active_verified %>% arrange(verified,site) %>% mutate(cum.count=cumsum(count),
+                                                                                    label.count=cumsum(count)-0.1*count)
+
+Fig2 <- ggplot(UP_active_verified, aes(x = verified, y = count,fill=fct_rev(site))) + 
+       geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+       scale_colour_manual(values= c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD","#5E4FA2"))+
+       scale_fill_manual(values= c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2"),name="Site")+
+       scale_x_discrete(limits=c("Cannot be verified","Not yet verified","Verified","Duplicate","Outreach timed out"),drop=FALSE)+
+      geom_text(aes(y=label.count, label=count),color="black",vjust=1.5,size=3.0) + labs(x = "", y = "# Participants") + 
+  stat_summary(fun.y = sum, aes(label = ..y.., group = verified), geom = "text",vjust = -.2) +
+  ggtitle("Fig 2. Active Recruits Verification Status among those with Profile Completed") + 
+  theme(panel.background = element_blank(),
+        legend.title = element_text(size=7),
+        axis.line = element_line(size=0.2),
+        axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
+        plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+
+
+UP_type_verified<- NULL ###to get the passive summary data
+
+for(site in unique(data$site)){
+  
+  UP_type_verified  <- filter(data[which(data$d_827220437>0 & data$d_699625233 == 353358909),],d_512820379== 854703046 & site==site ) %>%
+    arrange(site,factor(Rcrt_Verified_v1r0)) 
+}
+UP_passive_verified <- UP_type_verified %>% 
+  group_by(verified,site) %>% dplyr::summarise(count=n())
+UP_passive_verified <- UP_passive_verified %>% arrange(verified,site) %>% mutate(cum.count=cumsum(count),
+                                                                                    label.count=cumsum(count)-0.1*count)
+
+#c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2")
+
+Fig3 <- ggplot(UP_passive_verified, aes(x = verified, y = count,fill=fct_rev(site))) + 
+  geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+  scale_colour_manual(values=mycolors )+
+  scale_fill_manual(values= mycolors,name="Site")+
+  scale_x_discrete(limits=c("Cannot be verified","Not yet verified","Verified","Duplicate","Outreach timed out"),drop=FALSE)+
+  geom_text(aes(y=label.count, label=count),color="black",vjust=1.0,size=2.5) + labs(x = "", y = "# Participants") + 
+  stat_summary(fun.y = sum, aes(label = ..y.., group = verified), geom = "text",vjust = -.2) +
+  ggtitle("Fig 3. Passive Recruits Verification Status among those with Profile Completed") + 
+  theme(panel.background = element_blank(),
+        legend.title = element_text(size=7),
+        axis.line = element_line(size=0.2),
+        axis.text.x = element_text(angle=30,hjust = 1.0,size = 8, face = "bold"),                                            plot.title = element_text(hjust = 0.5,size = 12, face = "bold"),                
+        legend.position = c(0.2,0.6))
+```
+
+```{r, eval=TRUE,include=FALSE,fig.cap='Figure 3'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+Age_verified<- NULL
+for(age in unique(data$age)){
+  
+  Age_verified <- filter(data[which(data$d_821247024==197316935),],age==age ) %>%
+    arrange(factor(d_821247024),factor(Rcrt_Verified_v1r0)) 
+}
+
+Age_verified <- Age_verified %>% group_by(age,site) %>% dplyr::summarise(count=n()) %>% 
+  arrange(age,site) %>% mutate(cum.count=cumsum(count),
+         label.count=cumsum(count)-0.1*count)
+
+Fig4 <-  ggplot(Age_verified, aes(x = age, y = count,fill= fct_rev(site))) + 
+  geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+  scale_colour_manual(values= mycolors)+
+  scale_fill_manual(values= mycolors,name="Site")+
+  scale_x_discrete(limits=c("40-45","46-50","51-55","56-60","61-65"),drop=FALSE)+
+  geom_text(aes(y=label.count, label=count),color="black",vjust=1.0,size=3.0) + labs(x = "", y = "# Participants") + 
+  stat_summary(fun.y = sum, aes(label = ..y.., group = age), geom = "text",vjust = -.2) +
+  ggtitle("Fig 4. Age of Verified Participants") + 
+  theme(panel.background = element_blank(),
+        legend.title = element_text(size=7),
+        axis.line = element_line(size=0.2),
+        axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
+        plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+
+
+sex <- data[ which(data$d_821247024==197316935),]  %>%
+  group_by(sex,site) %>% dplyr::summarise(count=n()) %>% 
+  mutate(cum.count=cumsum(count),
+         label.count=cumsum(count)-0.1*count)
+
+#c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2")
+
+  Fig5 <- ggplot(sex, mapping=aes(x = sex, y = count,fill= fct_rev(site))) + 
+    geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+    scale_colour_manual(values= mycolors)+
+    scale_fill_manual(values= mycolors,name="Site")+
+    scale_x_discrete(limits=c("Female","Male","Intersex or other","Unknown"),drop=FALSE)+
+    geom_text(aes(label=count, y = pmax(20, label.count)),color="black",vjust=1.2,size=3.0) + labs(x = "", y = "# Participants")+     stat_summary(fun = sum, aes(label = ..y.., group = sex), geom = "text",vjust = -1.0 ) +
+    ggtitle("Fig 5. Sex of Verified Participants") + 
+    theme(panel.background = element_blank(),
+          legend.title = element_text(size=7),
+          axis.line = element_line(size=0.2),
+          axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
+          plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+  
+ #Fig6. "Race of Verified Participants"
+  race <- data[ which(data$d_821247024==197316935),] %>% 
+    group_by(race,site) %>% dplyr::summarise(count=n()) %>% 
+    mutate(cum.count=cumsum(count),
+           label.count=cumsum(count)-0.2*count)  
+ 
+   Fig6 <- ggplot(race, mapping=aes(x = race, y = count,fill= fct_rev(site))) + 
+    geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+    scale_colour_manual(values= mycolors)+
+    scale_fill_manual(values= mycolors,name="Site")+
+    scale_x_discrete(limits=c("White","Other","Unknown"),drop=FALSE)+
+    geom_text(aes(label=count, y = label.count),color="black",vjust=1.2,size=3.0) + labs(x = "", y = "# Participants") + 
+    stat_summary(fun = sum, aes(label = ..y.., group = race), geom = "text",vjust = -0.5) +
+    #coord_cartesian(expand = FALSE)+
+    #scale_y_continuous(expand = c(0.1, 0.1), limits = c(-1, NA))  + 
+    ggtitle("Fig 6. Race of Verified Participants") + 
+    theme(panel.background = element_blank(),
+          legend.title = element_text(size=7,face="bold"),
+          legend.position=c(0.8,0.7),
+          axis.line = element_line(size=0.2),
+          axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),        
+          plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+   
+ #Fig7. "Completion of Initial Survey among Verified Participants"
+  Survey <- data[ which(data$d_821247024==197316935),]  %>%
+    group_by(basesvcomplt,site) %>% dplyr::summarise(count=n()) %>% 
+    mutate(cum.count=cumsum(count),
+           label.count=cumsum(count)-0.4*count)
+  data$basesvcomplt <- factor(data$basesvcomplt, levels=c("All","2 or 3 sections", "BOH only","None"))
+  
+  Fig7 <- ggplot(Survey, mapping=aes(x = basesvcomplt, y = count,fill= fct_rev(site))) + 
+    geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+    scale_colour_manual(values=mycolors)+
+    scale_fill_manual(values=mycolors,name="Site" ) +
+    scale_x_discrete(limits=c("All","2 or 3 sections", "BOH only","None"),drop=FALSE)+
+    geom_text(aes(label=count, y = label.count),color="black",vjust=0.8,size=2.5) + labs(x = "", y = "# Participants") + 
+    stat_summary(fun = sum, aes(label = ..y.., group = basesvcomplt), geom = "text",vjust = -0.5) +
+    #coord_cartesian(expand = FALSE)+
+    #scale_y_continuous(expand = c(0.1, 0.1), limits = c(-1, NA))  + 
+    ggtitle("Fig 7. Completion of Initial Survey among Verified Participants") + 
+    theme(panel.background = element_blank(),
+          legend.title = element_text(size=7),
+          axis.line = element_line(size=0.2),
+          axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                       
+          plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+
+#Fig8. "Completion of SSN among Verified Participants as of 05172022"
+  SSN <- data[ which(data$d_821247024==197316935),]  %>%
+    group_by(SSN,site) %>% dplyr::summarise(count=n()) %>% 
+    mutate(cum.count=cumsum(count),
+           label.count=cumsum(count)-0.4*count)
+  data$SSN <- factor(data$SSN, levels=c("No SSN Given","Full SSN Given", "Partial SSN Given"))  
+  #values= c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2")
+  #values= c("#D53E4F","#F46D43","#FDAE61","#FEE08B","#E6F598", "#ABDDA4", "#66C2A5", "#3288BD", "#5E4FA2")
+  
+  Fig8 <- ggplot(SSN, mapping=aes(x = SSN, y = count,fill= fct_rev(site))) + 
+    geom_bar(position="stack",stat="identity",na.rm=TRUE)+ 
+    scale_colour_manual(values= mycolors) +   
+    scale_fill_manual( values=mycolors,name="Site") + 
+    scale_x_discrete(limits=c("No SSN Given","Full SSN Given", "Partial SSN Given"),drop=FALSE)+
+    geom_text(aes(label=count, y = label.count),color="black",vjust=0.8,size=3.0) + labs(x = "", y = "# Participants") + 
+    stat_summary(fun = sum, aes(label = ..y.., group = SSN), geom = "text",vjust = -0.5) +
+    #coord_cartesian(expand = FALSE)+
+    #scale_y_continuous(expand = c(0.1, 0.1), limits = c(-1, NA))  + 
+    ggtitle("Fig 8. Completion of SSN among Verified Participants") + 
+    theme(panel.background = element_blank(),
+          legend.title = element_text(size=7),
+          axis.line = element_line(size=0.2),
+          axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
+          plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+     
+```
+
+## Plots
+
+```{r,eval=TRUE,echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+Fig1  
+Fig2
+Fig3
+Fig4
+Fig5
+Fig6
+Fig7
+Fig8
+```
+
+\newpage
+## Tables
+
+```{r,eval=TRUE,echo = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+options(kableExtra.auto_format = FALSE)
+
+knitr::kable(recruittypetotal[,c(4,1:3)],format.args = list(big.mark = ","), caption = 'Table 1.  Total Number of Active and Passive recruits', row.names=FALSE, align=c("l", "c", "c", "c")) %>% kable_styling(latex_options = "HOLD_position") %>% footnote(general="Not Active records are excluded from this report")
+
+knitr::kable(cumulative_all, caption = 'Table 2. Cumulative Status All Recruits', row.names=FALSE, align=c("l", "c", "c", "c","c", "c","c"),format.args = list(big.mark = ",")) %>% kable_styling(latex_options = "HOLD_position") %>% kable_styling(latex_options = "scale_down")
+
+
+knitr::kable(cumulative_active[,c(1,8:13)], caption = 'Table 3. Cumulative Status for Active Recruits Only', row.names=FALSE, align=c("l", "c", "c", "c", "c","c")) %>% kable_styling(latex_options = "HOLD_position") %>% kable_styling(latex_options = "scale_down")
+
+knitr::kable(cumulative_passive[,c(1,8:13)], caption = 'Table 4. Cumulative Status for Passive Recruits Only',  row.names=FALSE, align=c("l","c","c","c","c","l")) %>% kable_styling(latex_options = "HOLD_position") %>% kable_styling(latex_options = "scale_down")
+
+work_flow_a  %>% kable_styling(latex_options = "scale_down")
+
+
+work_flow_act  %>% kable_styling(latex_options = "scale_down")
+work_flow_pass  %>% kable_styling(latex_options = "scale_down")
+
+Table8_profilecomplete %>% kable_styling(latex_options = "scale_down")
+Table8b_pro_pas %>% kable_styling(latex_options = "scale_down")
+
+Table8a_opt_act
+knitr::kable(Table9_precst_act, caption='Table 10. Timing of Pre-consent Opt Out Among Active Recruits', row.names=FALSE, align=c("l", "c", "c", "c"))
+Table9_precst_act1 
+
+Table10_profile  %>% kable_styling(latex_options = "scale_down")
+
+table11_age %>% kable_styling(latex_options = "scale_down")
+
+table12_race
+
+table13%>% kable_styling(font_size=8)
+
+table14 %>% kable_styling(latex_options = "scale_down")
+
+table15 %>% kable_styling(latex_options = "scale_down")
+
+table16_ageall  %>% kable_styling(latex_options = "scale_down")
+
+table17_raceall
+
+table18_sexall %>% kable_styling(latex_options = "scale_down")
+
+table19_recrall
+
+knitr::kable(Table25_response.rate, caption='Table 21. Verified Participants and Response Ratio', row.names=FALSE, align=c("l","c", "c", "c"))
+
+table21_surveycomplt
+
+table22_biocol %>% kable_styling(latex_options = "scale_down") %>% landscape()
+#table23_biocol_survey
+#table3a_veried
+#biosp_bld_table6
+
+```
+
+
+
+
+
+
+ 
+
+
+
+
+

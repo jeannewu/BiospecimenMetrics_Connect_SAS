@@ -1,0 +1,213 @@
+---
+title: "RMarkDown_CCC_Prod_Duplicate_weekly_Report"
+author: "JingWU"
+header-includes:  
+    - \usepackage[labelformat=empty]{caption}
+
+#date: "`r format(Sys.Date(), '%d %B, %Y')`"
+
+output:
+  pdf_document:
+    
+    toc: true
+    toc_depth: 2
+    keep_tex: yes
+    fig_width: 8
+    fig_height: 6
+    fig_caption: true
+    latex_engine: xelatex
+    df_print: paged 
+    
+---
+
+## R Markdown
+
+This is a CCC duplicate weekly report is done with the overall recruitment data without removal of inactive data
+`r format(Sys.Date(), '%d %B, %Y')` among the pariticipants without inactive recruits.
+
+
+```{r setup,eval=TRUE,include=FALSE,echo=FALSE}
+# The working data applied is the recruitment data 'nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP' synchronouslly updated with the ongoing study, without any inactive participants, or duplicates found in the active recruitments.
+# 
+# All the variable are masked under the CIDs which can be tracked in the master dictionary: "https://episphere.github.io/conceptGithubActions/aggregate.json"
+# 
+knitr::opts_chunk$set(echo = TRUE)
+#knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(bigrquery)
+library(data.table) ###to write or read and data management 
+library(boxr) ###read or write data from/to box
+library(tidyverse) ###for data management https://tidyselect.r-lib.org/reference/faq-external-vector.html
+library(dplyr) ###data management
+library(reshape)  ###to work on transition from long to wide or wide to long data
+library(listr) ###to work on a list of vector, files or..
+library(sqldf) ##sql
+library(lubridate) ###date time
+library(ggplot2) ###plots
+library(ggpubr) ###for the publications of plots
+library(RColorBrewer) ###visions color http://www.sthda.com/english/wiki/colors-in-r
+library(gridExtra)
+library(stringr) ###to work on patterns, charaters
+library(plyr)
+library(tinytex) #for pdf
+library(rmarkdown) ###for the output tables into other files: pdf, rtf, etc.
+library(janitor) #to get the summary sum
+#library(sas7bdat) ###input data
+library(finalfit) #https://cran.r-project.org/web/packages/finalfit/vignettes/export.html t
+library(expss) ###to add labels
+library(epiDisplay) ##recommended applied here crosstable, tab1
+library(summarytools) ##recommended
+library(gmodels) ##recommended
+library(magrittr)
+library(arsenal)
+library(gtsummary)
+library(kableExtra)
+options(knitr.table.format = "latex")
+currentDate <- Sys.Date()
+#dd$labels.combo <- paste(dd$`Variable Label`,dd$`Variable Name`,sep="$")
+ bq_auth()
+# #The bigrquery package is requesting access to your Google account.
+# #Select a pre-authorised account or enter '0' to obtain a new token.
+# #Press Esc/Ctrl + C to cancel.
+# 
+ 1 #: wuj12@nih.gov
+  project <- "nih-nci-dceg-connect-prod-6d04"
+  billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
+
+tb <- bq_project_query(project, query="SELECT Connect_ID, token, d_512820379,d_827220437,d_821247024, d_914594314, state_d_148197146 FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` 
+                       WHERE state_d_148197146 IS NOT NULL")
+
+duplicates <- bq_table_download(tb,bigint="integer64")
+# Check that it doesn't match any non-number
+  numbers_only <- function(x) !grepl("\\D", x)
+cnames <- colnames(duplicates)
+duplicates <- duplicates
+for (i in 1: length(cnames)){
+  varname <- cnames[i]
+  var<-pull(duplicates,varname)
+  duplicates[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+}
+
+ #duplicates <- data[which(!is.na(data$state_d_148197146)),c("Connect_ID","token","d_914594314","d_827220437","d_821247024","d_512820379","state_d_148197146")]
+# table(duplicates$state_d_148197146)
+table(duplicates$d_821247024,duplicates$state_d_148197146,duplicates$d_512820379)
+# , ,  = 486306141
+# 
+#            
+#             283434980 654558118 979256174
+#   197316935         0         0         0
+#   219863910         0         0         0
+#   875007964         0         0         0
+#   922622075         0         0         0
+# 
+# , ,  = 854703046
+# 
+#            
+#             283434980 654558118 979256174
+#   197316935         0         1         0
+#   219863910         0         0         0
+#   875007964         0         0         0
+#   922622075         2       262         2
+#283434980 638335430 654558118 979256174 
+#        2         2       245         2
+ write.csv(duplicates,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_duplicates_",currentDate,".csv",sep=""),row.names = F,na="")
+# IF RcrtV_Verification_v1r0 = 922622075 THEN DuplicateOnly = 1;
+# 
+# IF DuplicateOnly = 1 THEN DuplicateOnly2 = 1;
+# 
+# IF RcrtV_DuplicateType_v1r0 = 638335430 THEN ActPas = 1;
+# 
+# IF RcrtV_DuplicateType_v1r0 = 283434980 THEN NotActPas = 1;
+# 
+# IF RcrtV_DuplicateType_v1r0 = 866029623 THEN NotActAct = 1;
+# 
+# IF RcrtV_DuplicateType_v1r0 = 654558118 THEN PartEnroll = 1;
+# 
+# IF RcrtV_DuplicateType_v1r0 = 979256174 THEN PasAct = 1;
+# 
+# LABEL ActPas = "Active recruit signed in as Passive recruit"
+# 	  NotActPas = "Not Active recruit signed in as Passive recruit"
+# 	  NotActAct = "Not Active recruit signed in as an Active recruit"
+# 	  PartEnroll = "Participant already enrolled"
+# 	  PasAct = "Passive recruit signed in as Active recruit"
+# 	  DuplicateOnly = "Total Duplicates";
+duplicates <- duplicates %>% mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Passive recruit signed in as Passive recruit",
+                                                              state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
+                                                              state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
+                                                              state_d_148197146==654558118 ~ "Participant already enrolled",
+                                                              state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit"))
+
+duplicates <-  apply_labels(duplicates,d_827220437 = "Site",#RcrtES_Site_v1r0
+                     d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209, "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599, "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864, "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837))
+
+
+duplicates$site <- factor(duplicates$d_827220437,exclude=NULL,
+                    levels=c("HealthPartners", "Henry Ford Health System","Marshfield Clinic Health System",
+                             "Sanford Health", "University of Chicago Medicine","Kaiser Permanente Colorado",
+                             "Kaiser Permanente Georgia","Kaiser Permanente Hawaii","Kaiser Permanente Northwest",
+                             "National Cancer Institute","Other"))
+duplicates$site <- droplevels(duplicates$site)
+
+duplicates <- duplicates %>% filter(!is.na(site)) %>% arrange(site)
+
+  dup_db <- duplicates %>% filter(d_821247024==922622075 & d_827220437>0) %>% arrange(site) %>% 
+    mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Passive recruit signed in as Passive recruit",
+                                                              state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
+                                                              state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
+                                                              state_d_148197146==654558118 ~ "Participant already enrolled",
+                                                              state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit"),
+           site = droplevels(site)) %>% 
+  select(duptype_verif,site) %>%
+  tbl_cross(col = duptype_verif,
+            row = site,
+            label = duptype_verif ~ "Duplicates",
+            digits=c(0,2),
+            percent = c("row"),
+            missing = "ifany",
+            margin_text = "Total Duplicates",
+            missing_text = "(Missing)") 
+  
+  dup_db[["table_body"]]$stat_0 <- sapply(strsplit(dup_db[["table_body"]]$stat_0," "),"[",1)
+
+dup_db <- dup_db %>%
+  bold_labels() %>%
+  #italicize_levels() %>% 
+  modify_header() %>%
+  modify_caption("Duplicate Frequency By Duplicate Type and By Site") %>%
+  as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+
+dup_db_time <- duplicates[which(duplicates$state_d_148197146 == 654558118),] %>% mutate(dup_year= year(ymd_hms(d_914594314)),
+                                 dup_month = month(ymd_hms(d_914594314))) %>% group_by(dup_year,dup_month) %>% dplyr::summarize(dups_act=n())
+library(zoo)
+dup_db_time$year_month <- as.yearmon(paste(dup_db_time$dup_year,dup_db_time$dup_month), "%Y %m")
+```
+
+## Duplicate Metrics: including one table and plot
+
+
+```{r,eval=TRUE,echo=FALSE,include=TRUE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+dup_db %>%  kable_styling(latex_options = "scale_down")
+
+ggplot(dup_db_time, aes(y=dups_act, x=as.Date(year_month))) + geom_line() + geom_point() +
+  scale_y_continuous(name="# Duplicates", limits=c(0,70)) +
+  scale_x_date(name="date",date_labels = "%y-%m", date_breaks = "1 month")  +
+  ggtitle("Time Trend for Duplicate Type = Participant Already Enrolled") +
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black"),
+         plot.title = element_text(face="bold", size=18),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "none")
+ 
+
+```
+
