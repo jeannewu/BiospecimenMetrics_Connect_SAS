@@ -8,7 +8,7 @@ date: "`r format(Sys.Date(), '%d %B, %Y')`"
 
 output:
   pdf_document:
-    extra_dependencies: ["float"]
+    extra_dependencies: ["float","bbm", "threeparttable",
     toc: true
     toc_depth: 2
     keep_tex: yes
@@ -94,14 +94,14 @@ box_CID_dd <- merge(box_CID, dd,by="CID",all.x=TRUE)
 #to convert the numeric variables
 numbers_only <- function(x) !grepl("\\D", x)
 
-# cnames <- names(box_wl_flat)
-# ###to check variables in recr_noinact_wl1
-# data2 <- box_wl_flat
-# for (i in 1: length(cnames)){
-#   varname <- cnames[i]
-#   var<-pull(data2,varname)
-#   data2[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
-# }
+ cnames <- names(box_wl_flat)
+ ###to check variables in recr_noinact_wl1
+ data2 <- box_wl_flat
+ for (i in 1: length(cnames)){
+   varname <- cnames[i]
+   var<-pull(data2,varname)
+   data2[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+ }
 # 
 
 pct_tb <- function(x,y){
@@ -1472,14 +1472,15 @@ research.vt.length <- research.survey %>%  mutate(time=as.numeric(time_biochk)) 
 sv.outlier.research <- ggplot(research.survey, aes(x=Site, y=as.numeric(time_biochk),fill=Site,color=Site)) + 
   geom_boxplot() + geom_jitter(width = 0.2) +   scale_fill_brewer(palette="Dark2") +
   geom_hline(linetype = "dashed", yintercept = 1440,color="red") + 
+  annotate('text', x=1, y=1800, label = "24 hours",size=3)+
   ggtitle("Fig 2. Research Biospecimen CollectionVisit Length (in Minutes) by Site") +
-          ylab("Visit Length (minutes)") + xlab("Site") +
-  scale_y_continuous(limits = c(0, 50000)) +
-  theme(panel.background = element_blank(),
-        legend.title = element_text(size=7),
-        axis.line = element_line(size=0.2),
-        axis.text.x = element_text(hjust = 0.5,size = 8, face = "bold"),                                                            
-        plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
+    ylab("Visit Length (minutes)") + xlab("Site") +
+    scale_y_continuous(limits = c(0, 50000)) +
+    theme(panel.background = element_blank(),
+          legend.title = element_text(size=7),
+          axis.line = element_line(size=0.2),
+          axis.text.x = element_text(angle = 60,hjust = 1, size = 8, face = "bold"), 
+          plot.title = element_text(hjust = 0.5,size = 12, face = "bold"))
 
 
 ###for the clinical collections
