@@ -568,7 +568,6 @@ pct_tb <- function(x,y){
 
 ##Table6_bysite. the research blood collection completions
 ##for blood collection based on the biospecimen data individually
-biospe <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_biospecimen_2023-02-06.csv")
 
 biospe<- apply_labels(biospe,d_827220437 = "Site",#RcrtES_Site_v1r0
                      d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715,"Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864, "Kaiser Permanente Colorado" = 125001209,"Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599,"National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837))
@@ -1667,7 +1666,7 @@ knitr::kable(notcol_combo2[,c(14,1:3)],caption='Table 14. Number of Tubes Not Co
 
 knitr::kable(notcol.reasons.research[,c(8,1:7)], caption='Table 15. Number of Tube Not Collected by Tube Type, and By Site at Research Collection Visits',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(notcol.reasons.research[,c(3,4:8,1,2)], caption='Table 16. Number of Tube Not Collected by Tube Type, and By Site at Clinic Collections',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(notcol.reasons.clinic[,c(3,4:8,1,2)], caption='Table 16. Number of Tube Not Collected by Tube Type, and By Site at Clinic Collections',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
 knitr::kable(discard.site[,c(5,1:4)], caption='Table 17. Number of Blood Tubes Discarded', row.names=FALSE, col.names=c("Site", "Number of Heparin Tubes Discarded", "Number of ACD Tubes Discarded", "Number of Urine Tubes Discarded", "Total Tubes Discarded"), align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
