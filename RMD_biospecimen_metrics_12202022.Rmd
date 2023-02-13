@@ -1662,7 +1662,7 @@ knitr::kable(dev_count,caption='Table 12. Number of Deviations by Biospecimen Ty
 
 knitr::kable(notcol_combo[,c(9,1:8)],caption='Table 13. Number of Tubes Not Collected at Research Collection Visits', row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE)  %>% kable_styling(latex_options = "scale_down") %>% landscape()
 
-knitr::kable(notcol_combo2[,c(14,1:3)],caption='Table 14. Number of Tubes Not Collected at Clinic Collection Visits', row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE)
+knitr::kable(notcol_combo2[,c(14,1:13)],caption='Table 14. Number of Tubes Not Collected at Clinic Collection Visits', row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE) %>%  kable_styling(latex_options = "scale_down") %>% landscape()
 
 knitr::kable(notcol.reasons.research[,c(8,1:7)], caption='Table 15. Number of Tube Not Collected by Tube Type, and By Site at Research Collection Visits',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
