@@ -1811,6 +1811,14 @@ write.csv(box1,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_proj
   ###to get the formats and variable names from DD
  
 
+
+factor_cid <-function(var,data){
+  var <- as.factor(var)
+  var_CIDs <- as.data.frame(cbind(unique(y$conceptId.4[grepl(paste(levels(var),collapse="|"),y$conceptId.4)]),unique(trimws(sapply(strsplit(y$Current.Format.Value[grepl(paste(levels(var),collapse="|"),y$conceptId.4)], "="),tail,1)))))
+  
+  var <- plyr::mapvalues(var,from=var_CIDs$V1,to=var_CIDs$V2)
+}
+
 biospe_CID <- as.data.frame(sapply((strsplit(colnames(biospe),"d_")),tail,1))
 colnames(biospe_CID)[1] <- "CID"
 biospe_CID$variable <- names(biospe)
@@ -1862,7 +1870,7 @@ for (i in 1:length(yes_no)){
   biospe1 <-   cbind(biospe1,subset(check,select=varname))
 }
 
-write.csv(biospe1,"~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/Connect_prod_Biospe_Formats_02132023.csv",row.names = F,na="")
+write.csv(biospe1,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/Connect_prod_Biospe_Formats",currentDate,".csv",sep="_"),row.names = F,na="")
 
 ###biospecimen data
 
@@ -1874,23 +1882,17 @@ recrvar_CID_dd <- merge(recrver_CID, y[,c("Primary.Source","conceptId.2","concep
 
 recrvar_CID_dd <- recrvar_CID_dd %>% mutate(category = case_when(conceptId.4 == 104430631~1, 
                                                                  !is.na(conceptId.4) & conceptId.4 !=104430631 ~ 2,
-                                                                 is.na(conceptId.4) ~0)) 
+                                                                 is.na(conceptId.4) ~0),
+                                            Variable.Name=ifelse(is.na(Variable.Name), variable, Variable.Name)) 
 
 recrbio1 <- NULL
 select0 <- recrvar_CID_dd$variable[which(recrvar_CID_dd$category==0)]
 select2 <- recrvar_CID_dd$variable[which(recrvar_CID_dd$category==2)]
 yes_no <- recrvar_CID_dd$variable[which(recrvar_CID_dd$category==1)]
 recrbio1 <- subset(recr.bio,select =c(select0,select2))
-colnames(recrbio1)[which(colnames(recrbio1)==select0)] <-  c(recrvar_CID_dd$Variable.Name[which(recrvar_CID_dd$category==0)][1:26],"Connect_ID","token")
+colnames(recrbio1)[which(colnames(recrbio1) %in% select0)] <-  recrvar_CID_dd$Variable.Name[which(recrvar_CID_dd$category==0)]
 n<- length(select0)
 
-factor_cid <-function(var,data){
-  var <- as.factor(var)
-  var_CIDs <- as.data.frame(cbind(unique(y$conceptId.4[grepl(paste(levels(var),collapse="|"),y$conceptId.4)]),unique(trimws(sapply(strsplit(y$Current.Format.Value[grepl(paste(levels(var),collapse="|"),y$conceptId.4)], "="),tail,1)))))
-  
-  #box1$d_789843387 <- boxes$d_789843387 %>% mutate(d_789843387=factor(d_789843387)) 
-  var <- plyr::mapvalues(var,from=var_CIDs$V1,to=var_CIDs$V2)
-}
  
 for (i in 1: length(select2)){
   eval(parse(text=paste("recrbio1$",select2[i],"<-factor_cid(recrbio1$",select2[i],")",sep="")))
@@ -1907,5 +1909,6 @@ for (i in 1:length(yes_no)){
   recrbio1 <-   cbind(recrbio1,subset(check,select=varname))
 }
 
-write.csv(recrbio1,"~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/Connect_prod_recr_veriBiospe_Formats_02132023.csv",row.names = F,na="")
+write.csv(recrbio1,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/Connect_prod_recr_veriBiospe_Formats_",currentDate,".csv",sep=""),row.names = F,na="")
+
 ```
