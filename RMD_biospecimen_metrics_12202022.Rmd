@@ -1666,7 +1666,7 @@ knitr::kable(notcol.reasons.research[,c(8,1:7)], caption='Table 15. Number of Tu
 
 knitr::kable(notcol.reasons.clinic[,c(3,4:8,1,2)], caption='Table 16. Number of Tube Not Collected by Tube Type, and By Site at Clinic Collections',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(discard.site[,c(5,1:4)], caption='Table 17. Number of Blood Tubes Discarded', row.names=FALSE, col.names=c("Site", "Number of Heparin Tubes Discarded", "Number of ACD Tubes Discarded", "Number of Urine Tubes Discarded", "Total Tubes Discarded"), align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(discard.site[,c(6,1:5)], caption='Table 17. Number of Blood Tubes Discarded', row.names=FALSE, col.names=c("Site", "Number of Heparin Tubes Discarded", "Number of ACD Tubes Discarded", "Number of Urine Tubes Discarded", "Total Tubes Discarded"), align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
 knitr::kable(sv.complete[,c(2:5)],caption='Table 18. Baseline Research Biospecimen Survey Status', row.names=TRUE, col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c","c"), booktabs = TRUE)
 
