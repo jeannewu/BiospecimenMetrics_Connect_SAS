@@ -1548,6 +1548,7 @@ research.vt <- ggplot(visit_wk_site, aes(x=as.Date(visit.wkdate), y=n,fill=Site,
   #theme_ipsum() +
   theme(panel.background = element_blank(),
         legend.title = element_text(size=7),
+        legend.position="bottom",
         axis.line = element_line(size=0.2),
         axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
         axis.title.y = element_text(size = 14, face = "bold",color="black"),                                                            
