@@ -1826,22 +1826,24 @@ biospe_CID$variable <- names(biospe)
 biospe_CID_dd <- merge(biospe_CID, y[,c("Primary.Source","conceptId.2","conceptId.3","Variable.Name","Variable.Label","conceptId.4","Current.Format.Value")],by.x="CID",by.y="conceptId.3",all.x=TRUE)
 
 biospe_CID_dd <- biospe_CID_dd %>% mutate(category = case_when(conceptId.4 == 104430631~1, 
-                                                                 !is.na(conceptId.4) & conceptId.4 !=104430631 ~ 2,
-                                                                 is.na(conceptId.4) ~0),
+                                                               !is.na(conceptId.4) & conceptId.4 !=104430631 ~ 2,
+                                                               is.na(conceptId.4) ~0),
                                           firstCID = sapply(strsplit(variable,"_"),"[",2),
                                           label.1st = case_when(sapply(strsplit(variable,"_"),"[",2) == "973670172"  ~ "UrineTube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "143615646"  ~ "MM Tube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "299553921"  ~ "SS Tube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "703954371"  ~ "SS Tube2",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "454453939"  ~ "EDTA Tube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "838567176"  ~ "Heparin Tube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "652357376"  ~ "ACD Tube1",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "677469051"  ~ "EDTA Tube2",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "683613884"  ~ "EDTA Tube3",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "376960806"  ~ "SS Tube3",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "232343615"  ~ "SS Tube4",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "589588440"  ~ "SS Tube5",
-                                                                sapply(strsplit(variable,"_"),"[",2) == "958646668"  ~ "Heparin Tube2")) 
+                                                                sapply(strsplit(variable,"_"),"[",2) == "143615646"  ~ "MMTube1",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "299553921"  ~ "SSTube1",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "703954371"  ~ "SSTube2",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "454453939"  ~ "EDTATube1",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "838567176"  ~ "HeparinTube1",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "652357376"  ~ "ACDTube1",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "677469051"  ~ "EDTATube2",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "683613884"  ~ "EDTATube3",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "376960806"  ~ "SSTube3",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "232343615"  ~ "SSTube4",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "589588440"  ~ "SSTube5",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "958646668"  ~ "HeparinTube2",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "223999569"  ~ "BiohazardMW",
+                                                                sapply(strsplit(variable,"_"),"[",2) == "787237543"  ~ "BiohazardBIU" )) 
 
 biospe_CID_dd$new.varname <- ifelse(is.na(biospe_CID_dd$label.1st), biospe_CID_dd$Variable.Name,paste(biospe_CID_dd$label.1st,biospe_CID_dd$Variable.Name,sep="_"))
 biospe_CID_dd$variable[is.na(biospe_CID_dd$new.varname)]
@@ -1870,6 +1872,12 @@ for (i in 1:length(yes_no)){
   colnames(check)[2] <- varname
   biospe1 <-   cbind(biospe1,subset(check,select=varname))
 }
+
+#update the colnames based on the names of the previous SAS data 
+colnames(biospe1) <- gsub("Object|Obj","Tube", colnames(biospe1))
+colnames(biospe1) <- gsub("BioCol_Dev_v1r0","Deviation",colnames(biospe1))
+biospe1 <- biospe1[,order(colnames(biospe1))]
+biospe1 <- biospe1[,c(43,296,161,40:42,29:30,35:39,22:28,143:160,31:34,163:218,45:65,104:124,1:21,297:314,66:103,125:143,219:295,162,44)]
 
 write.csv(biospe1,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/Connect_prod_Biospe_Formats",currentDate,".csv",sep="_"),row.names = F,na="")
 
