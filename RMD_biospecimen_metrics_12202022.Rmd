@@ -153,18 +153,6 @@ tb_bq <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT token,C
  
 recr.bio <- bigrquery::bq_table_download(tb_bq,bigint = "integer64")
 
-##below are the commone variables in the recruitment table on Biospecimen to apply for the analysis. In case any new variables popping up, i would like #to use the one above directly from the resources (master DD and recruitment table schema to get the most updated version on this biospecimen data
-# tb <- bq_project_query(project, query="SELECT d_512820379,d_512820379, d_821247024, d_914594314, d_822499427, d_222161762, Connect_ID, d_827220437, token,d_265193023, d_878865966, d_167958071, d_684635302, d_253883960, d_534669573, d_764863765, d_331584571_d_266600170_d_135591601,d_331584571_d_266600170_d_840048338,  d_331584571_d_266600170_d_343048998, d_173836415_d_266600170_d_139245758, d_173836415_d_266600170_d_185243482,
-# d_173836415_d_266600170_d_198261154, d_173836415_d_266600170_d_210921343, d_173836415_d_266600170_d_224596428,
-# d_173836415_d_266600170_d_316824786, d_173836415_d_266600170_d_341570479, d_173836415_d_266600170_d_398645039,
-# d_173836415_d_266600170_d_448660695, d_173836415_d_266600170_d_452847912, d_173836415_d_266600170_d_453452655,
-# d_173836415_d_266600170_d_530173840, d_173836415_d_266600170_d_534041351, d_173836415_d_266600170_d_541311218,
-# d_173836415_d_266600170_d_561681068, d_173836415_d_266600170_d_592099155, d_173836415_d_266600170_d_611091485,
-# d_173836415_d_266600170_d_646899796, d_173836415_d_266600170_d_693370086, d_173836415_d_266600170_d_718172863,
-# d_173836415_d_266600170_d_728696253, d_173836415_d_266600170_d_740582332, d_173836415_d_266600170_d_769615780,
-# d_173836415_d_266600170_d_786930107, d_173836415_d_266600170_d_822274939, d_173836415_d_266600170_d_847159717,
-# d_173836415_d_266600170_d_860477844, d_173836415_d_266600170_d_915179629, d_173836415_d_266600170_d_939818935,
-# d_173836415_d_266600170_d_951355211, d_173836415_d_266600170_d_982213346 FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` WHERE d_821247024 = '197316935'")
 
 ##to convert to numeric
 cnames <- names(recr.bio)
@@ -1402,7 +1390,7 @@ time.clcsv_checkin <-time.clcsv_checkin %>%
 # Research biospecimen collection visit length (in minutes)
 statics_biock <- tapply(as.numeric(research.survey$time_biochk),research.survey$biochk_outlier,summary)
 tab32a <- bind_rows(statics_biock)
-tab32a$`Outlier Present?` <- ifelse(rownames(statics_biock)==1,"no outliers","outlier")
+tab32a$`Outlier Present?` <- ifelse(rownames(tab32a)==1,"no outliers","outlier")
 
 research.vt.length <- research.survey %>%  mutate(time=as.numeric(time_biochk)) %>% group_by(biochk_outlier,Site) %>% 
   dplyr::summarize('Number collection visit'=n(),
@@ -1552,7 +1540,8 @@ research.vt <- ggplot(visit_wk_site, aes(x=as.Date(visit.wkdate), y=n,fill=Site,
         axis.line = element_line(size=0.2),
         axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
         axis.title.y = element_text(size = 14, face = "bold",color="black"),                                                            
-        plot.title = element_text(hjust = 0.5,size = 12, face = "bold")) 
+        plot.title = element_text(hjust = 0.5,size = 12, face = "bold")) +
+        +guides(fill=guide_legend(nrow=2,byrow=TRUE))
   #+scale_x_date(limit=c(as.Date("2022-06-10"),as.Date("2023-10-16"))) + scale_y_continuous(breaks = seq(0, 30, by = 3))
 
 ###clnical blood collections
@@ -1617,23 +1606,35 @@ options(kableExtra.auto_format = FALSE)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 
 #Table1_biospecol
-knitr::kable(biospe.t1[,c(5,3,4,6)],col.names=c("Site","Any Samples Collected", "No Samples Collected", "Total"),format.args = list(big.mark = ","),caption='Table 1. Number (and percent) of verified participants with any baseline biospecimen collections',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
+knitr::kable(biospe.t1[,c(5,3,4,6)],col.names=c("Site","Any Samples Collected", "No Samples Collected", "Total"),linesep = "",format.args = list(big.mark = ","),caption='Table 1. Number (and percent) of verified participants with any baseline biospecimen collections',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
 
 
 #knitr::kable(t1_all1,caption='Table 1. Number (and percent) of verified participants with any baseline biospecimen collections by site',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
 
 #Table2_bldcol
-knitr::kable(biospe.bld[,c(5,4,3,6)],col.names=c("Site","Blood Collected", "Blood Not Collected", "Total"),format.args = list(big.mark = ","),caption='Table 2. Number (and percent) of verified participants with baseline blood collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
+knitr::kable(biospe.bld[,c(5,4,3,6)],col.names=c("Site","Blood Collected", "Blood Not Collected", "Total"),format.args = list(big.mark = ","),linesep = "",caption='Table 2. Number (and percent) of verified participants with baseline blood collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
 
 #Table3_urincol
-knitr::kable(biospe.urine[,c(5,4,3,6)],col.names=c("Site","Urine Collected", "Urine Not Collected", "Total"),format.args = list(big.mark = ","),caption='Table 3. Number (and percent) of verified participants with baseline urine collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
+knitr::kable(biospe.urine[,c(5,4,3,6)],col.names=c("Site","Urine Collected", "Urine Not Collected", "Total"),format.args = list(big.mark = ","),linesep = "",caption='Table 3. Number (and percent) of verified participants with baseline urine collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
 
 #Table4_mwcol
-knitr::kable(biospe.mw[,c(5,4,3,6)],col.names=c("Site","Mouthwash Collected", "Mouthwash Not Collected", "Total"),format.args = list(big.mark = ","),caption='Table 4. Number (and percent) of verified participants with baseline mouthwash collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
+knitr::kable(biospe.mw[,c(5,4,3,6)],col.names=c("Site","Mouthwash Collected", "Mouthwash Not Collected", "Total"),linesep = "",format.args = list(big.mark = ","),caption='Table 4. Number (and percent) of verified participants with baseline mouthwash collected',row.names=FALSE, align=c("l","l","l","c"), booktabs=TRUE)
 
-knitr::kable(biosettings,caption='Table 5. Number of blood, urine, and mouthwash collected by collection setting.', row.names=FALSE, align=c("l","c","c","c"), format.args = list(big.mark = ","), booktabs = TRUE)
+knitr::kable(biosettings,caption='Table 5. Number of blood, urine, and mouthwash collected by collection setting.', row.names=FALSE, linesep = "",align=c("l","c","c","c"), format.args = list(big.mark = ","), booktabs = TRUE)
 
-knitr::kable(biocol,col.names=c("Blood Collected?","Urine Collected?","Mouthwash Collected?","Frequency Count","Percent of Total %","Frequency Cumulative","Frequency Cumulative Percent %"), caption='Table 6. Baseline biospecimen collection status among verified participants. Based on data entered into Connect Biospecimen Dashboard.', row.names=FALSE, align=c("l","c","c","c","c","c","c"), format.args = list(big.mark = ","), booktabs = TRUE)
+knitr::kable(biocol,col.names=c("Blood Collected?","Urine Collected?","Mouthwash Collected?","Frequency Count","Percent of Total %","Frequency Cumulative","Frequency Cumulative Percent %"), caption='Table 6. Baseline biospecimen collection status among verified participants. Based on data entered into Connect Biospecimen Dashboard.',linesep = "", row.names=FALSE, align=c("l","c","c","c","c","c","c"), format.args = list(big.mark = ","),format="latex", booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+```
+
+```{r,echo=FALSE,error=FALSE,message=FALSE,results='asis'}
+#options(knitr.table.format = "latex")
+#options(kableExtra.auto_format = FALSE)
+#knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+for (i in 5:length(biocol.site)){
+  site <- names(biocol.site[i])
+  n <- i-4
+  print(knitr::kable(biocol.site[[site]],col.names=c("Site","Blood Collected?","Urine Collected?","Mouthwash Collected?","Frequency Count","Percent of Total %","Frequency Cumulative","Frequency Cumulative Percent %"), caption=paste("Table 6.",n, " Baseline biospecimen collection status among verified participants of ",site, sep=""), row.names=FALSE, align=c("l","c","c","c","c","c","c"), linesep = "",format.args = list(big.mark = ","), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down"))
+}
 ```
 
 ```{r,echo=FALSE,error=FALSE,message=FALSE,results='asis'}
@@ -1647,39 +1648,39 @@ for (i in 5:length(biocol.site)){
 
 ```{r,echo=FALSE,error=FALSE,message=FALSE,results='asis'}
 #table6
-knitr::kable(bldcol_research1, col.names=c("Site","All Blood Tubes Collected","Partial Blood Tubes Collected","No Blood Tubes Collected","Total"), caption='Table 7. Blood Completeness among Baseline Research Collections', row.names=FALSE, align=c("l","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(bldcol_research1, col.names=c("Site","All Blood Tubes Collected","Partial Blood Tubes Collected","No Blood Tubes Collected","Total"), caption='Table 7. Blood Completeness among Baseline Research Collections', linesep = "", row.names=FALSE, align=c("l","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(bldcol_clinic[,c(6,7,1:4,8,5)], caption='Table 8. Blood Completeness among Baseline Clinic Collections', row.names=FALSE, align=c("l","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(bldcol_clinic[,c(6,7,1:4,8,5)], caption='Table 8. Blood Completeness among Baseline Clinic Collections', row.names=FALSE, align=c("l","c","c","c","c"), linesep = "", booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
 Table8_BldCli
 
 Table9_UrineCli
 
-knitr::kable(Table17[,c(7,5,6,4)],col.names=c("Site","Any Deviations","No Deviations", "Total"), caption='Table 11. Number (and percent) of tubes with any deviation by site',row.names=FALSE, align=c("l","c","c","c"), booktabs = TRUE )
+knitr::kable(Table17[,c(7,5,6,4)],col.names=c("Site","Any Deviations","No Deviations", "Total"), caption='Table 11. Number (and percent) of tubes with any deviation by site',row.names=FALSE, linesep = "", align=c("l","c","c","c"), booktabs = TRUE )
 
-knitr::kable(dev_count,caption='Table 12. Number of Deviations by Biospecimen Type and by Tube Type', row.names=FALSE, align=c("l","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down") 
+knitr::kable(dev_count,caption='Table 12. Number of Deviations by Biospecimen Type and by Tube Type', linesep = "", row.names=FALSE, align=c("l","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down") 
 
-knitr::kable(notcol_combo[,c(9,1:8)],caption='Table 13. Number of Tubes Not Collected at Research Collection Visits', row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE)  %>% kable_styling(latex_options = "scale_down") %>% landscape()
+knitr::kable(notcol_combo[,c(9,1:8)],caption='Table 13. Number of Tubes Not Collected at Research Collection Visits', linesep = "", row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE)  %>% kable_styling(latex_options = "scale_down") %>% landscape()
 
-knitr::kable(notcol_combo2[,c(14,1:13)],caption='Table 14. Number of Tubes Not Collected at Clinic Collection Visits', row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE) %>%  kable_styling(latex_options = "scale_down") %>% landscape()
+knitr::kable(notcol_combo2[,c(14,1:13)],caption='Table 14. Number of Tubes Not Collected at Clinic Collection Visits', linesep = "", row.names=FALSE,align=c("l","c","c","c","c","c","c","c"), booktabs = TRUE) %>%  kable_styling(latex_options = "scale_down") %>% landscape()
 
-knitr::kable(notcol.reasons.research[,c(8,1:7)], caption='Table 15. Number of Tube Not Collected by Tube Type, and By Site at Research Collection Visits',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(notcol.reasons.research[,c(8,1:7)], caption='Table 15. Number of Tube Not Collected by Tube Type, and By Site at Research Collection Visits',row.names=FALSE,linesep = "", align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(notcol.reasons.clinic[,c(3,4:8,1,2)], caption='Table 16. Number of Tube Not Collected by Tube Type, and By Site at Clinic Collections',row.names=FALSE,align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(notcol.reasons.clinic[,c(3,4:8,1,2)], caption='Table 16. Number of Tube Not Collected by Tube Type, and By Site at Clinic Collections',row.names=FALSE,linesep = "", align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(discard.site[,c(6,1:5)], caption='Table 17. Number of Blood Tubes Discarded', row.names=FALSE, col.names=c("Site", "Number of Heparin Tubes Discarded", "Number of ACD Tubes Discarded", "Number of Urine Tubes Discarded", "Total Tubes Discarded"), align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
+knitr::kable(discard.site[,c(6,1:5)], caption='Table 17. Number of Blood Tubes Discarded', row.names=FALSE, col.names=c("Site", "Number of Heparin Tubes Discarded", "Number of ACD Tubes Discarded", "Number of Urine Tubes Discarded", "Total Tubes Discarded"), linesep = "", align=c("l","c","c","c","c","c","c"), booktabs = TRUE) %>% kable_styling(latex_options = "scale_down")
 
-knitr::kable(sv.complete[,c(2:5)],caption='Table 18. Baseline Research Biospecimen Survey Status', row.names=TRUE, col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c","c"), booktabs = TRUE)
+knitr::kable(sv.complete[,c(2:5)],caption='Table 18. Baseline Research Biospecimen Survey Status', row.names=TRUE, col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"),linesep = "",  align=c("l","c","c","c","c","c"), booktabs = TRUE)
 
-knitr::kable(clinicsv.complete[,c(2:5)],caption='Table 19. Baseline Clinical Biospecimen Survey Status', row.names=TRUE, col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c","c"), booktabs = TRUE)
+knitr::kable(clinicsv.complete[,c(2:5)],caption='Table 19. Baseline Clinical Biospecimen Survey Status', row.names=TRUE, linesep = "", col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c","c"), booktabs = TRUE)
 
-knitr::kable(time.sv_checkin[,c(2,3,5,6)] , caption='Table 20. Baseline Research Biospecimen Survey Completion Time from Time of Visit Check-In',row.names=TRUE,col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c"), booktabs = TRUE)
+knitr::kable(time.sv_checkin[,c(2,3,5,6)] , caption='Table 20. Baseline Research Biospecimen Survey Completion Time from Time of Visit Check-In',row.names=TRUE,linesep = "", col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("l","c","c","c","c"), booktabs = TRUE)
 
 
-knitr::kable(time.clcsv_checkin, caption='Table 21. Baseline Clinical Biospecimen Survey Completion Time from Time of Visit Check-In',row.names=TRUE,col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("c","c","c","c"), booktabs = TRUE)
+knitr::kable(time.clcsv_checkin, caption='Table 21. Baseline Clinical Biospecimen Survey Completion Time from Time of Visit Check-In', row.names=TRUE,linesep = "", col.names=c("Frequency","Percent %", "Cumulative Percent %", "Cumulative Frequency"), align=c("c","c","c","c"), booktabs = TRUE)
 
 colnames(research.vt.length)[1] = "Outlier"
-knitr::kable(research.vt.length,caption='Table 22. Research biospecimen collection visit length by site (in minutes))',row.names=FALSE, align=c("l","c","c","c","c","c","c","c","c","c"),digits=2, booktabs = TRUE)%>% kable_styling(latex_options = "scale_down") %>% landscape()
+knitr::kable(research.vt.length,caption='Table 22. Research biospecimen collection visit length by site (in minutes))',row.names=FALSE, linesep = "", align=c("l","c","c","c","c","c","c","c","c","c"),digits=2, booktabs = TRUE)%>% kable_styling(latex_options = "scale_down") %>% landscape()
 
 ```
 
