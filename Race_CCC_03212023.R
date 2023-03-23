@@ -364,86 +364,55 @@ barplot(c(1:11),col=c("#053061","#999999","#F16913","#FD8D3C","#FFD92F","#0072B2
 col=c("#E69F00","#56B4E9","#F46D43","#A6D96A","#08519C")
 
 
-ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic))) +
-  geom_bar(width = 1, stat = "identity") +
-  coord_polar(theta = "y", start = 0) +
-  scale_fill_manual(values = mycolors,name="Race Ethinicity") +
-  #scale_colour_brewer(palette = "RdBu") +
-  labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants ",
-       fill = "BiospmCols_v1r0") + 
-  geom_text(aes(x=1.6, label=count_pct),
-            position =  position_stack(vjust=0.6), size=3) +
-  #geom_text(aes(x = 1.3, y = midpoint , label = count_pct), color="black",
-   #         fontface = "bold") +
-  theme(plot.title = element_text(hjust = 0.5), 
-        legend.title = element_text(hjust = 0.5, face="bold", size = 10)) 
-
 #label outside
-ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic))) +
-  geom_bar(width = 1, stat = "identity") +
-  coord_polar(theta = "y", start = 0) +
-  scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
-  scale_colour_manual(values= mycolors) +
-  labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
-       fill = "race_ethnic") + 
-  geom_text(aes(x=1.9, label=count_pct),
-            position =  position_stack(vjust=0.6), size=3, color="black",fontface = "bold") +
-  theme(panel.background = element_blank(),
-        plot.title = element_text(hjust = 0.0, face="bold"), 
-        axis.ticks = element_blank(),axis.text = element_blank(),
-        legend.title = element_text(hjust = 0.5, face="bold", size = 10))
-
-ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(levels(race_ethnic1)))) +
-  geom_bar(width = 1, stat = "identity") +
-  coord_polar(theta = "y", start = 0) +
-  scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
-  scale_colour_manual(values= mycolors) +
-  labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
-       fill = "race_ethnic") + 
-  geom_text(aes(x=1.8, label=percent),
-            position =  position_stack(vjust=0.8), size=3, color="black",fontface = "bold") +
-  theme(panel.background = element_blank(),
-        plot.title = element_text(hjust = 0.0, face="bold"), 
-        axis.ticks = element_blank(),axis.text = element_blank(),
-        legend.title = element_text(hjust = 0.5, face="bold", size = 10))
+# ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic))) +
+#   geom_bar(width = 1, stat = "identity") +
+#   coord_polar(theta = "y", start = 0) +
+#   scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
+#   scale_colour_manual(values= mycolors) +
+#   labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
+#        fill = "race_ethnic") + 
+#   geom_text(aes(x=1.9, label=count_pct),
+#             position =  position_stack(vjust=0.6), size=3, color="black",fontface = "bold") +
+#   theme(panel.background = element_blank(),
+#         plot.title = element_text(hjust = 0.0, face="bold"), 
+#         axis.ticks = element_blank(),axis.text = element_blank(),
+#         legend.title = element_text(hjust = 0.5, face="bold", size = 10))
+# 
+# ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(levels(race_ethnic1)))) +
+#   geom_bar(width = 1, stat = "identity") +
+#   coord_polar(theta = "y", start = 0) +
+#   scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
+#   scale_colour_manual(values= mycolors) +
+#   labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
+#        fill = "race_ethnic") + 
+#   geom_text(aes(x=1.8, label=percent),
+#             position =  position_stack(vjust=0.8), size=3, color="black",fontface = "bold") +
+#   theme(panel.background = element_blank(),
+#         plot.title = element_text(hjust = 0.0, face="bold"), 
+#         axis.ticks = element_blank(),axis.text = element_blank(),
+#         legend.title = element_text(hjust = 0.5, face="bold", size = 10))
 
 library(ggrepel)
 
-ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic1))) +
-  geom_bar(width = 1, stat = "identity") +
-  coord_polar(theta = "y", start = 0) +
-  scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
-  scale_colour_manual(values= mycolors) +
-  labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
-       fill = "race_ethnic") + 
-  geom_text(aes(x=1.8, label=percent),
-            position =  position_stack(vjust=0.8), size=3, color="black",fontface = "bold") +  
-  theme(panel.background = element_blank(),
-        plot.title = element_text(hjust = 0.0, face="bold"), 
-        axis.ticks = element_blank(),axis.text = element_blank(),
-        legend.title = element_text(hjust = 0.5, face="bold", size = 10))
+# ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic1))) +
+#   geom_bar(width = 1, stat = "identity") +
+#   coord_polar(theta = "y", start = 0) +
+#   scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
+#   scale_colour_manual(values= mycolors) +
+#   labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
+#        fill = "race_ethnic") + 
+#   geom_text(aes(x=1.8, label=percent),
+#             position =  position_stack(vjust=0.8), size=3, color="black",fontface = "bold") +  
+#   theme(panel.background = element_blank(),
+#         plot.title = element_text(hjust = 0.0, face="bold"), 
+#         axis.ticks = element_blank(),axis.text = element_blank(),
+#         legend.title = element_text(hjust = 0.5, face="bold", size = 10))
 
 race_M1complt <- race_M1complt %>% arrange(midpoint)
 
 names(mycolors) <- levels(race_M1complt$race_ethnic1)
 ##this is the best plot I can make
-ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic1))) +
-  geom_bar(width = 1, stat = "identity") +
-  coord_polar(theta = "y", start = 0) +
-  scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
-  scale_colour_manual(values= mycolors) +
-  labs(x = "", y = "", title = "Distribution of Race and Ethnicity Among Connect Verified Participants",
-       fill = "race_ethnic") + 
-  geom_col(color = 'black', 
-         position = position_stack(reverse = FALSE), 
-         show.legend = FALSE) +
-  geom_text_repel(aes(x = 1.5, y = midpoint, label = percent), 
-                  nudge_x = .05,
-                  box.padding = 0.5,
-                  nudge_y = 1,
-                  segment.curvature = -0.1,
-                  segment.ncp = 3,
-                  segment.angle = 20)+
 
   race_M1plot <- race_M1complt %>%
   mutate(csum = rev(cumsum(rev(count))), 
@@ -466,10 +435,34 @@ ggplot(race_M1complt, aes(x = "", y = count, fill = fct_rev(race_ethnic1))) +
   coord_polar(theta = "y") +   theme_void() 
   
   
-race_M1complt <- race_M1complt[order(levels(race_M1complt$race_ethnic1)),]
-#race_M1complt$midpoint = cumsum(race_M1complt$count) - (race_M1complt$count / 2)
-race_M1complt$midpoint2 <- ifelse(race_M1complt$count<20, race_M1complt$count, cumsum(race_M1complt$count) - (race_M1complt$count / 2))
-race_M1complt$midpoint
+race_M1complt$percent <- round(100*race_M1complt$count/sum(race_M1complt$count),digits=2)
+#race_M1complt$RaceEthnicity <- as.factor(race_M1complt$race_ethnic1)  ##to redefine the exact levels of this variable
+race_M1complt <- race_M1complt %>% arrange(desc(as.numeric(race_ethnic1)))
+race_M1complt$text_y <- cumsum(race_M1complt$percent) - race_M1complt$percent/2
+#names(mycolors) <- fct_rev(tb_serum$Receipt_to_Processing_Time) #remove this line JW
+
+raceM1_plot <- ggplot(data = race_M1complt, aes(x=" ", y=percent,  fill=race_ethnic1)) +
+  geom_col(color = "black") + geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start=0) + 
+  #Adding color instead of black text to percentages- using geom_label instead of geom_text
+  #geom_text_repel(data=tb_serum[which(tb_serum$serum_N !=0),],aes(label=Percent , y =text_y ),nudge_x = 1,nudge_y=0.1,
+  # size = 4, show.legend = F) + 
+  geom_label_repel(data=race_M1complt,aes(label=percent , y =text_y ),nudge_x = 1,nudge_y=0.05,force=0.1,
+                   colour="green", segment.colour="black", size = 4, show.legend = F) +
+  ggtitle(label = "Distribution Of Race and Ethnicity Among Connect Verified Participants",
+          subtitle="Connect for Cancer Prevention Study
+                    Nine Sites 03/21/2023") + 
+  theme(panel.background = element_blank(),
+        axis.line = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        plot.title = element_text(hjust = 0.5,size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5,size=12),
+        plot.caption = element_text(color = "green", face = "italic")) +
+  scale_fill_manual(values = mycolors,name = "Race Ethnicity") +
+  scale_colour_manual(values= mycolors) ##to replace the previous line above Jing
+
 
 library(plotly)
 
