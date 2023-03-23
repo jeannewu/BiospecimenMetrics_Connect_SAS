@@ -22,8 +22,7 @@ output:
 
 ## R Markdown
 
-This is a CCC duplicate weekly report is done with the overall recruitment data without removal of inactive data
-`r format(Sys.Date(), '%d %B, %Y')` among the pariticipants without inactive recruits.
+This is a CCC duplicate weekly report is done with the overall recruitment data including duplicates of all recruitments on `r format(Sys.Date(), '%d %B, %Y')`.
 
 
 ```{r setup,eval=TRUE,include=FALSE,echo=FALSE}
@@ -70,11 +69,10 @@ currentDate <- Sys.Date()
 # #Press Esc/Ctrl + C to cancel.
 # 
  1 #: wuj12@nih.gov
-  project <- "nih-nci-dceg-connect-prod-6d04"
-  billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
+ project <- "nih-nci-dceg-connect-prod-6d04"
+ billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
 
-tb <- bq_project_query(project, query="SELECT Connect_ID, token, d_512820379,d_827220437,d_821247024, d_914594314, state_d_148197146 FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` 
-                       WHERE state_d_148197146 IS NOT NULL")
+tb <- bq_project_query(project, query="SELECT Connect_ID, token, d_512820379,d_827220437,d_821247024, d_914594314, state_d_148197146, state_d_793822265 FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` WHERE d_821247024='922622075' or state_d_148197146 IS NOT NULL")
 
 duplicates <- bq_table_download(tb,bigint="integer64")
 # Check that it doesn't match any non-number
@@ -87,9 +85,11 @@ for (i in 1: length(cnames)){
   duplicates[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
 }
 
+#duplicates <- read.csv("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_duplicates_2023-03-06.csv" )
  #duplicates <- data[which(!is.na(data$state_d_148197146)),c("Connect_ID","token","d_914594314","d_827220437","d_821247024","d_512820379","state_d_148197146")]
 # table(duplicates$state_d_148197146)
 table(duplicates$d_821247024,duplicates$state_d_148197146,duplicates$d_512820379)
+
 # , ,  = 486306141
 # 
 #            
@@ -109,7 +109,8 @@ table(duplicates$d_821247024,duplicates$state_d_148197146,duplicates$d_512820379
 #   922622075         2       262         2
 #283434980 638335430 654558118 979256174 
 #        2         2       245         2
- write.csv(duplicates,paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_duplicates_",currentDate,".csv",sep=""),row.names = F,na="")
+
+ 
 # IF RcrtV_Verification_v1r0 = 922622075 THEN DuplicateOnly = 1;
 # 
 # IF DuplicateOnly = 1 THEN DuplicateOnly2 = 1;
@@ -130,11 +131,27 @@ table(duplicates$d_821247024,duplicates$state_d_148197146,duplicates$d_512820379
 # 	  PartEnroll = "Participant already enrolled"
 # 	  PasAct = "Passive recruit signed in as Active recruit"
 # 	  DuplicateOnly = "Total Duplicates";
-duplicates <- duplicates %>% mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Passive recruit signed in as Passive recruit",
-                                                              state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
-                                                              state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
-                                                              state_d_148197146==654558118 ~ "Participant already enrolled",
-                                                              state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit"))
+urlfile<- "https://raw.githubusercontent.com/episphere/conceptGithubActions/master/csv/masterFile.csv" ###to grab the updated dd from github
+y <- read.csv(urlfile)
+
+factor_cid <-function(var,data){
+  var <- as.factor(var)
+  var_CIDs <- as.data.frame(cbind(unique(y$conceptId.4[grepl(paste(levels(var),collapse="|"),y$conceptId.4)]),unique(trimws(sapply(strsplit(y$Current.Format.Value[grepl(paste(levels(var),collapse="|"),y$conceptId.4)], "="),tail,1)))))
+  
+  var <- plyr::mapvalues(var,from=var_CIDs$V1,to=var_CIDs$V2)
+}
+
+
+duplicates <- duplicates %>% 
+  mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Active recruit signed in as Passive Recruit",
+                                   state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
+                                   state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
+                                   state_d_148197146==654558118 ~ "Participant already enrolled",
+                                   state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit",
+                                   d_821247024==922622075 & is.na(state_d_148197146) ~ "Unknown"),
+         recruit_type = case_when(d_512820379 == 486306141 ~ "Active",
+                                 d_512820379 == 854703046 ~ "Passive",
+                                 d_512820379 == 180583933 ~ "Not active"))
 
 duplicates <-  apply_labels(duplicates,d_827220437 = "Site",#RcrtES_Site_v1r0
                      d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, "Kaiser Permanente Colorado" = 125001209, "Kaiser Permanente Georgia" = 327912200,"Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599, "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, "University of Chicago Medicine" = 809703864, "National Cancer Institute" = 517700004,"National Cancer Institute" = 13,"Other" = 181769837))
@@ -146,15 +163,102 @@ duplicates$site <- factor(duplicates$d_827220437,exclude=NULL,
                              "Kaiser Permanente Georgia","Kaiser Permanente Hawaii","Kaiser Permanente Northwest",
                              "National Cancer Institute","Other"))
 duplicates$site <- droplevels(duplicates$site)
+duplicates$duptype_verif <- factor(duplicates$duptype_verif,exclude=NULL,levels=c("Active recruit signed in as Passive Recruit","Not Active recruit signed in as Passive recruit","Not Active recruit signed in as an Active recruit","Participant already enrolled","Passive recruit signed in as Active recruit","Unknown"))
 
-duplicates <- duplicates %>% filter(!is.na(site)) %>% arrange(site)
+duplicates$RecruitType.updated <- factor_cid(duplicates$state_d_793822265)
+duplicates <- duplicates %>% filter(!is.na(site)) %>% arrange(site,duptype_verif)
 
-  dup_db <- duplicates %>% filter(d_821247024==922622075 & d_827220437>0) %>% arrange(site) %>% 
-    mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Passive recruit signed in as Passive recruit",
-                                                              state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
-                                                              state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
-                                                              state_d_148197146==654558118 ~ "Participant already enrolled",
-                                                              state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit"),
+  dup_recruit <- duplicates %>% filter( d_821247024==922622075 | state_d_148197146>0 ) %>% arrange(site) %>% 
+    mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Active recruit signed in as Passive Recruit",
+                                     state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
+                                     state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
+                                     state_d_148197146==654558118 ~ "Participant already enrolled",
+                                     state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit",
+                                     is.na(state_d_148197146) ~ "Unknown"),
+           site = droplevels(site),
+           recruit_type=factor(recruit_type,levels=c("Active","Passive","Not active"))) %>% 
+  select(recruit_type,site) %>%
+  tbl_cross(col = recruit_type,
+            row = site,
+            label = list(recruit_type ~ "Recruitment Type",site="Site"),
+            digits=c(0,2),
+            percent = c("row"),
+            missing = "ifany",
+            margin_text = "Total Duplicates",
+            missing_text = "Missing") 
+  
+  dup_recruit[["table_body"]]$stat_0 <- sapply(strsplit(dup_recruit[["table_body"]]$stat_0," "),"[",1)
+
+dup_recruit <- dup_recruit %>%
+  bold_labels() %>%
+  #italicize_levels() %>% 
+  modify_header(stat_3 = "Not Active") %>%
+  modify_caption("Table 1. Duplicate Frequency By Recruitment Type and By Site") %>%
+  as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
+
+duplicates$recruit_type <- factor(duplicates$recruit_type, levels = c("Active","Passive","Not active"))
+duplicates1 <-duplicates %>% filter(.,d_821247024==922622075 | state_d_148197146>0) %>% mutate(RecruitType.updated = ifelse(is.na(RecruitType.updated),"Unknown", levels(RecruitType.updated)))
+
+dup.tab <- as.data.frame(xtabs(~site+recruit_type+duptype_verif,data=duplicates1)) %>% arrange(site,recruit_type,duptype_verif)
+
+Active.dup.site <- reshape(dup.tab[which(dup.tab$recruit_type =="Active"),],idvar=c("site","recruit_type"),timevar="duptype_verif",direction="wide")
+Active.dup.site$ActiveDup.total <- apply(Active.dup.site[,c(3:8)],1,sum)
+
+recruit.type <- duplicates %>% group_by(recruit_type,site) %>% tally()
+Active.site.dup <- merge(Active.dup.site,recruit.type,by=c("site","recruit_type"))
+                         
+
+dup.total <- as.data.frame(t(mapply(sum,Active.site.dup[,c(3:10)])))
+dup.total$site <- "Total Active Recruits"
+
+Active.dup.site1 <- Active.site.dup[,c(1,3:10)] 
+Active.dup.site1[,c(2:8)] <- apply(Active.site.dup[,(3:9)],2,function(x) paste0(x, " (",round(100*x/Active.dup.site1$n,2), " %)"))
+Active.dup.site1 <- Active.dup.site1%>% arrange(site)
+Active.dup.site1 <- rbind(Active.dup.site1,dup.total) 
+colnames(Active.dup.site1) <- gsub("Freq.","",colnames(Active.dup.site1))
+colnames(Active.dup.site1)[1] <- "Site"
+colnames(Active.dup.site1)[9] <- "Total Active Invitations"
+
+Passive.dup.site <- reshape(dup.tab[which(dup.tab$recruit_type =="Passive"),], idvar=c("site","recruit_type"), timevar="duptype_verif", direction="wide")
+Passive.dup.site$Passive.total <- apply(Passive.dup.site[,c(3:8)],1,sum)
+
+passdup.total <- as.data.frame(t(mapply(sum,Passive.dup.site[,c(3:9)])))
+passdup.total$site <- "Total Passive Recruits"
+
+Passive.dup.site1 <- Passive.dup.site[,c(1,3:9)] 
+Passive.dup.site1[,c(2:7)] <- apply(Passive.dup.site[,(3:8)],2,function(x) paste0(x, " (",round(100*x/Passive.dup.site1$Passive.total,2), " %)"))
+Passive.dup.site1 <- Passive.dup.site1%>% arrange(site)
+Passive.dup.site1 <- rbind(Passive.dup.site1,passdup.total) 
+
+colnames(Passive.dup.site1) <- gsub("Freq.","",colnames(Passive.dup.site1))
+colnames(Passive.dup.site1)[1] <- "Site"
+colnames(Passive.dup.site1)[8] <- "Total Passive Duplicates"
+
+###Inactive recruit
+Inactive.dup.site <- reshape(dup.tab[which(dup.tab$recruit_type =="Not active"),],idvar=c("site","recruit_type"),timevar="duptype_verif",direction="wide")
+
+Inactive.dup.site$Inactive.total <- apply(Inactive.dup.site[,c(3:8)],1,sum)
+
+Inactdup.total <- as.data.frame(t(mapply(sum,Inactive.dup.site[,c(3:9)])))
+Inactdup.total$site <- "Total Inactive Recruits"
+
+Inactive.dup.site1 <- Inactive.dup.site[,c(1,3:9)] 
+Inactive.dup.site1[,c(2:7)] <- apply(Inactive.dup.site[,(3:8)],2,function(x) ifelse(x==0 |Inactive.dup.site1$Inactive.total==0,  paste0(x, " ( 0.00%)"),paste0(x, " (",round(100*x/Inactive.dup.site1$Inactive.total,2), " %)"))) 
+Inactive.dup.site1 <- Inactive.dup.site1%>% arrange(site)
+Inactive.dup.site1 <- rbind(Inactive.dup.site1,Inactdup.total) 
+
+colnames(Inactive.dup.site1) <- gsub("Freq.","",colnames(Inactive.dup.site1))
+colnames(Inactive.dup.site1)[1] <- "Site"
+colnames(Inactive.dup.site1)[8] <- "Total Not Active Duplicates"
+
+
+  dup_db <- duplicates %>% filter( d_821247024==922622075 | state_d_148197146>0 ) %>% arrange(site) %>% 
+    mutate(duptype_verif = case_when(state_d_148197146==638335430 ~ "Active recruit signed in as Passive Recruit",
+                                     state_d_148197146==283434980 ~ "Not Active recruit signed in as Passive recruit",
+                                     state_d_148197146==866029623 ~ "Not Active recruit signed in as an Active recruit",
+                                     state_d_148197146==654558118 ~ "Participant already enrolled",
+                                     state_d_148197146==979256174 ~"Passive recruit signed in as Active recruit",
+                                     is.na(state_d_148197146) ~ "Unknown"),
            site = droplevels(site)) %>% 
   select(duptype_verif,site) %>%
   tbl_cross(col = duptype_verif,
@@ -172,13 +276,44 @@ dup_db <- dup_db %>%
   bold_labels() %>%
   #italicize_levels() %>% 
   modify_header() %>%
-  modify_caption("Duplicate Frequency By Duplicate Type and By Site") %>%
+  modify_caption("Table 2. Duplicate Frequency By Duplicate Type and By Site") %>%
   as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
 
-dup_db_time <- duplicates[which(duplicates$state_d_148197146 == 654558118),] %>% mutate(dup_year= year(ymd_hms(d_914594314)),
-                                 dup_month = month(ymd_hms(d_914594314))) %>% group_by(dup_year,dup_month) %>% dplyr::summarize(dups_act=n())
+
+
+dup_db_time <- duplicates[which(duplicates$state_d_148197146 == 654558118),] %>% 
+  mutate(duplicate.date = ymd_hms(d_914594314),
+         veristart.date = as_date(min(ymd_hms(d_914594314))),
+         duplicate.week = ceiling(as.numeric(difftime(as_date(duplicate.date),as_date(veristart.date),units="days"))/7),
+         dup_year= year(ymd_hms(d_914594314)),
+         dup_month = month(ymd_hms(d_914594314))) 
+ dup_db_time <- dup_db_time %>% arrange(recruit_type,duplicate.week,duplicate.date)
+
+
+veristart.date <- unique(dup_db_time$veristart.date)
+
+ dup_time <-  dup_db_time %>% group_by(recruit_type,duplicate.week) %>%
+  dplyr::summarize(dups_act=n(),
+                   max_duplicate.date=max(duplicate.date,na.rm=TRUE))
+ 
+ duplicate.week <- rep(c(1:58),time=2)
+ recruit_type <- rep(c("Active","Passive"),each=58)
+ dup.wk <- data.frame(duplicate.week, recruit_type)
+ 
+ 
+ dup_time_wk <- merge(dup.wk,dup_time, by.x=c("duplicate.week","recruit_type"),by.y=c("duplicate.week","recruit_type"),all.x=TRUE)
+ 
+ dup_time_wk$dups_act <- dup_time_wk$dups_act %>%tidyr::replace_na(0)
+ dup_time_wk <- dup_time_wk %>% 
+   mutate(duplicate.date = case_when(dups_act==0 ~ as.POSIXct(veristart.date) + dweeks(duplicate.week),
+                                     dups_act>0 ~ as.POSIXct(max_duplicate.date)))
+ 
+ dupmore.tab <- as.data.frame(xtabs(~site+recruit_type+RecruitType.updated+duptype_verif,data=duplicates1)) %>% arrange(site,recruit_type,RecruitType.updated,duptype_verif) %>% filter(.,Freq>0)
+write.csv( dupmore.tab, paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_duplicates_RecruitType",currentDate,".csv",sep=""),row.names = F,na="")
 library(zoo)
 dup_db_time$year_month <- as.yearmon(paste(dup_db_time$dup_year,dup_db_time$dup_month), "%Y %m")
+
+write.csv(duplicates[which(duplicates$d_821247024==922622075 | !is.na(duplicates$state_d_148197146)), ], paste("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/prod_duplicates_",currentDate,".csv",sep=""),row.names = F,na="")
 ```
 
 ## Duplicate Metrics: including one table and plot
@@ -186,16 +321,23 @@ dup_db_time$year_month <- as.yearmon(paste(dup_db_time$dup_year,dup_db_time$dup_
 
 ```{r,eval=TRUE,echo=FALSE,include=TRUE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
-
+dup_recruit %>%  kable_styling(latex_options = "scale_down")
 dup_db %>%  kable_styling(latex_options = "scale_down")
 
-ggplot(dup_db_time, aes(y=dups_act, x=as.Date(year_month))) + geom_line() + geom_point() +
-  scale_y_continuous(name="# Duplicates", limits=c(0,70)) +
-  scale_x_date(name="date",date_labels = "%y-%m", date_breaks = "1 month")  +
-  ggtitle("Time Trend for Duplicate Type = Participant Already Enrolled") +
+knitr::kable(Active.dup.site1,digits=2,format.args = list(big.mark = ","),caption = 'Table 3.1. Number (Percent) of Duplicate Type Among Active Recruits with Invitations',booktabs=T, linesep = "",row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c")) %>% kable_styling(latex_options = "scale_down",font_size=12)
+
+knitr::kable(Passive.dup.site1,digits=2,format.args = list(big.mark = ","),caption = 'Table 3.2. Number (Percent) of Duplicate Type Among Passive Duplicates',booktabs=T, linesep = "",row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c")) %>% kable_styling(latex_options = "scale_down",font_size=12)
+
+knitr::kable(Inactive.dup.site1,digits=2,format.args = list(big.mark = ","),caption = 'Table 3.3. Number (Percent) of Duplicate Type Among not Active Recruits',booktabs=T, linesep = "",row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c")) %>% kable_styling(latex_options = "scale_down",font_size=12)
+
+colnames(dup_time_wk)[2]<-"Recruitment Type"
+ggplot(dup_time_wk, aes(y=dups_act, x=as.Date(duplicate.date),color=`Recruitment Type`)) + geom_line() + geom_point() +
+  scale_y_continuous(name="# Duplicates", limits=c(0,30)) +
+  scale_x_date(name="Date",date_labels = "%m/%d/%Y", date_breaks = "2 week")  +
+  ggtitle("Time Trend for Duplicate Type = Participant Already Enrolled \nof All Sites") + 
   theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
          axis.title.y = element_text(size = 14, face = "bold",color="black"),
-         plot.title = element_text(face="bold", size=18),
+         plot.title = element_text(face="bold", size=16),
          # Remove panel border
          panel.border = element_blank(),  
          # Remove panel grid lines
@@ -206,8 +348,88 @@ ggplot(dup_db_time, aes(y=dups_act, x=as.Date(year_month))) + geom_line() + geom
          # Add axis line
          axis.line = element_line(colour = "grey") ,
          ##put the legend in the plot
-         legend.position = "none")
+         legend.position = c(0.2, 0.7),
+         legend.margin = margin(1, 1, 1, 1))
  
 
 ```
 
+\pagebreak
+```{r,eval=TRUE,echo=FALSE,include=TRUE,results='asis'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ 
+dup_time.site <-  dup_db_time %>% group_by(site,recruit_type,duplicate.week) %>%
+  dplyr::summarize(dups_act=n(),
+                   max_duplicate.date=max(duplicate.date,na.rm=TRUE))
+dup_time.site$site <- droplevels(dup_time.site$site)
+
+colnames(dup_time.site)[2]<-"Recruitment Type"
+
+ dupmore1.tab <- as.data.frame(xtabs(~site+recruit_type+RecruitType.updated+duptype_verif,data=duplicates1[which(duplicates1$state_d_148197146==654558118),])) %>% arrange(site,recruit_type,RecruitType.updated,duptype_verif) %>% filter(.,Freq>0)
+
+Fig1 <- list()
+for (i in 1:9){
+  site1 <- levels(dupmore1.tab$site)[i]
+  table1 <- filter(dupmore1.tab,site==site1 & recruit_type=="Active")
+  table1$duplicates.cum <- cumsum(table1$Freq)
+  table2 <- filter(dupmore1.tab,site==site1 & recruit_type=="Passive")
+  table2$duplicates.cum <- cumsum(table2$Freq)
+  
+  t1 <- knitr::kable(table1,format.args = list(big.mark = ","),caption = paste0("Table 4.",i,"a. Number of Participants Enrolled Duplicates by Updated Recruitment Type of Active Recruits of ", site1),booktabs=T, linesep = "",col.names= c("Site","Recruitment Type","Updated Recruitment Type","Duplicate Type","Freq","Cumulative Duplicates"),row.names=FALSE, align=c("l", "c", "c","c", "c", "c")) %>% kable_styling(latex_options = "scale_down",font_size=12) 
+  print(t1)
+t2 <-knitr::kable(table2,format.args = list(big.mark = ","),col.names= c("Site","Recruitment Type","Updated Recruitment Type","Duplicate Type","Freq","Cumulative Duplicates"),caption = paste0("Table 4.",i,"b. Number of Participants Enrolled Duplicates by Updated Recruitment Type of Passive Recruits of ", site1),booktabs=T, linesep = "",row.names=FALSE, align=c("l", "c", "c","c", "c", "c")) %>% kable_styling(latex_options = "scale_down",font_size=12)
+ print(t2)
+
+  
+  site <- levels(dup_time.site$site)[i]
+  sub <-dup_time.site[which(dup_time.site$site==site),]
+  max <- max(sub$dups_act)
+  
+  max.week <- max(sub$duplicate.week)
+  duplicate.week <- rep(c(1:max(sub$duplicate.week)),time=2)
+ reruit_type <- rep(c("Active","Passive"),each=max.week)
+ dup.wk <- data.frame(duplicate.week, reruit_type)
+ colnames(dup.wk)[2] <- "Recruitment Type"
+ 
+ sub_wk <- merge(dup.wk,sub, by.x=c("duplicate.week","Recruitment Type"),by.y=c("duplicate.week","Recruitment Type"),all.x=TRUE)
+sub_wk$site <- sub_wk$site %>%tidyr::replace_na(site)
+ sub_wk$dups_act <- sub_wk$dups_act %>%tidyr::replace_na(0)
+ sub_wk <- sub_wk %>% 
+   mutate(duplicate.date = case_when(dups_act==0 ~ as.POSIXct(veristart.date) + dweeks(duplicate.week),
+                                     dups_act>0 ~ as.POSIXct(max_duplicate.date)))
+
+  figure <- ggplot(sub_wk,aes(y=dups_act,x=as.Date(duplicate.date, origin = lubridate::origin),color=`Recruitment Type`)) + geom_line() + geom_point() +
+    scale_y_continuous(name="# Duplicates", limits=c(0,20)) +
+    scale_x_date(name="Date",date_labels = "%m/%d/%Y", date_breaks = "2 week")  +
+    ggtitle(paste("Time Trend for Duplicate Type = Participant Already Enrolled \n",site,sep=" ")) + 
+    theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+           axis.title.y = element_text(size = 14, face = "bold",color="black"),
+           plot.title = element_text(face="bold", size=12),
+           # Remove panel border
+           panel.border = element_blank(),  
+           # Remove panel grid lines
+           panel.grid.major = element_blank(),
+           panel.grid.minor = element_blank(),
+           # Remove panel background
+           panel.background = element_blank(),
+           # Add axis line
+           axis.line = element_line(colour = "grey") ,
+           ##put the legend in the plot
+           legend.position = c(0.2, 0.7),
+           legend.margin = margin(1, 1, 1, 1))
+  print(figure)
+  Fig1[[i]] <-figure
+}
+
+#for (i in 1:length(Fig1)){print(Fig1[[i]])}
+# 
+#   p1 <- Fig1[[1]]
+#   p2 <- Fig1[[2]]
+#   p3 <- Fig1[[3]]
+#   p4 <- Fig1[[4]]
+#   p5 <- Fig1[[5]]
+#   p6 <- Fig1[[6]]
+#   p7 <- Fig1[[7]]
+#   p8 <- Fig1[[8]]
+#   p9 <- Fig1[[9]] 
+```
