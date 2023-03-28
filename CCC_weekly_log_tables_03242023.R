@@ -5,7 +5,6 @@ library(boxr)
 library(tidyverse)
 library(dplyr)
 library(reshape)  
-library(foreach)
 library(stringr)
 library(plyr)
 
@@ -21,7 +20,7 @@ project <- "nih-nci-dceg-connect-prod-6d04"
 billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
 
 ###for the verified, invitation, biospecimen checkin, module completions, all activity completed on Mar. 9, 2023
-data <- readRDS("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit2023-03-27.rds" )
+#data <- readRDS("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit2023-03-27.rds" )
 ###the timing of verified, recruitment, incentive, biospecimen collections, survey completions
 dd[grepl("TmComplete",dd$`Variable Name`),]
 # # A tibble: 9 × 3
@@ -88,7 +87,7 @@ ref.wd <- c("d_773707518","d_747006172","d_831041022","d_664453818","d_269050420
 var.list <- c("token","Connect_ID","d_821247024","d_914594314","d_512820379","state_d_158291096","d_471593703","d_827220437",
               "d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_731498909",bio.col,modules,ref.wd)
 requery <- paste(var.list,collapse=",")
-tb <- bq_project_query(project, query="SELECT requery FROM `nih-nci-dceg-connect-prod-6d04.Connect.QC_reporttb` Where d_512820379 != '180583933' or d_821247024='197316935'")
+tb <- bq_project_query(project, query="SELECT requery FROM `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' or d_821247024='197316935'")
 #Auto-refreshing stale OAuth token.
 #Complete
 #Billed: 0 B
