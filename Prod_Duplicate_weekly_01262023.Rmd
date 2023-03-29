@@ -1,5 +1,5 @@
 ---
-title: "RMarkDown_CCC_Prod_Duplicate_weekly_Report"
+title: " CCC Prod Duplicate Weekly Report"
 author: "JingWU"
 header-includes:  
     - \usepackage[labelformat=empty]{caption}
