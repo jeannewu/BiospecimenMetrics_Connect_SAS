@@ -247,9 +247,9 @@ var.list <- c("token","Connect_ID","d_821247024","d_914594314","d_512820379","st
               "d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_731498909",bio.col,modules)
 
 select <- paste(var.list,collapse=",")
-#query <-  eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' and (d_512820379 !=  '486306141' or d_821247024 != '922622075') \")",sep=" ")))
+query <-  eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' and (d_512820379 !=  '486306141' or d_821247024 != '922622075') \")",sep=" ")))
 
-#data <- bq_table_download(query, bigint="integer64",n_max = Inf, page_size = 10000)
+data <- bq_table_download(query, bigint="integer64",n_max = Inf, page_size = 10000)
 
 numbers_only <- function(x) !grepl("\\D", x)
  
