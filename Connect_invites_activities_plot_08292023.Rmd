@@ -1,0 +1,897 @@
+---
+title: "Connect Recruitment Plots via ggplots"
+author: "Jing Wu"
+date: "`r format(Sys.Date()-2, '%d %B, %Y')`"
+output:
+  pdf_document:
+    extra_dependencies:
+    - float
+    toc: yes
+    toc_depth: 2
+    keep_tex: yes
+    fig_width: 10
+    fig_height: 7
+    fig_caption: yes
+    latex_engine: xelatex
+    df_print: paged
+  # html_document:
+  #   toc: yes
+  #   toc_depth: '2'
+  #   df_print: paged
+ #always_allow_html: true   
+header-includes: \usepackage[labelformat=empty]{caption}
+---
+## General Information
+
+Based on Dr. Gaudet, Mia (NIH/NCI) [E] on Aug. 29, 2023
+
+working dataset: GCP prod Participants table downloaded on `r format(Sys.Date()-2, '%d %B, %Y')`
+
+"Good morning Jing, on the same graph, could you please plot the number of invitations; verifications, no activities; survey only, blood only, survey+blood (in other words, use the same variables from Fig 3 in the weekly metrics report and add number of invitations) with the x-axis == date (like in Fig 1) to create a cumulative picture of these numbers?
+
+Please do this overall and then for each site in an individual figure."
+
+updated with Dr. Gaudet's comments: 
+Cumulative Invitation Plots
+Title change to “Cumulative Number of Invitations Through <Date>, <Overall or Site Name>”
+Y-axis – do not use scientific notation; please write out the number; add more tick marks with the numbers
+X-axis – please display fewer tick markers/ dates
+ 
+Cumulative Numbers by Baseline Study Activity
+Title change to “Cumulative Number of Participants by Date and Baseline Study Activities through <Date>, <Overall or Site Name>”
+Y-axis label change to “Number of Participants”
+Key label change to “Baseline Study Activities”
+Horizonal line label change to “TO6 Expectations”
+
+Comments from @Horner, Marie Josephe (NIH/NCI) [E] – these are the graphs that you suggested that we try y-axes on a different scale. Nicole also suggested using a break in the scale to get both the invitations and completion of the study activities on the same graph. I defer to the three of you to resolve the issue.
+
+updates on a new set of combo plots (invitations + verification activities in the same plot with a second y-axis add-in)
+Sep. 11, 2023: comments from Dr. Gaudet:
+
+Could you please swap the y-axes? I think it will be easier to read.
+Please reformat the numbers along the y-axes to be XXX,XXX.
+A bit over the top, but could you use purple rather than red font for the TO6 expectation to help the reader focus on the purple curve?
+Lastly, please remove the other figure iterations and just show the combined curves for overall and by site.
+ 
+```{r setup, include=FALSE,eval=TRUE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(bigrquery)
+library(data.table) ###to write or read and data management 
+library(boxr) ###read or write data from/to box
+library(tidyverse) ###for data management https://tidyselect.r-lib.org/reference/faq-external-vector.html
+#library(dplyr) ###data management
+library(reshape)  ###to work on transition from long to wide or wide to long data
+library(listr) ###to work on a list of vector, files or..
+#library(sqldf) ##sql
+#library(lubridate) ###date time
+library(ggplot2) ###plots
+library(ggrepel)
+library(ggpubr) ###for the publications of plots
+library(RColorBrewer) ###visions color http://www.sthda.com/english/wiki/colors-in-r
+library(gridExtra)
+#library(stringr) ###to work on patterns, charaters
+library(plyr)
+library(tidyr)
+library(tinytex) #for pdf
+library(rmarkdown) ###for the output tables into other files: pdf, rtf, etc.
+library(janitor) #to get the summary sum
+#library(finalfit) #https://cran.r-project.org/web/packages/finalfit/vignettes/export.html
+library(expss) ###to add labels
+library(epiDisplay) ##recommended applied here crosstable, tab1
+#library(summarytools) ##recommended not applied in this R code
+#library(gmodels) ##recommended but not applied in this R code
+library(magrittr)
+library(arsenal)
+library(gtsummary)
+library(kableExtra)
+#library(patchwork)
+library(rio)
+#library(htmltools)
+#library(tidyquant)
+#library(plotly)
+library(scales)
+
+
+outputplot <- "~/Documents/Connect_projects/Biospecimen_Feb2022/Mia_requests/ConnectPlots/"
+
+#library(jsonlite)
+```
+
+
+```{r, include=FALSE,eval=TRUE,echo=FALSE}
+options(knitr.table.format = "latex")
+currentDate <- Sys.Date()-2
+
+###Aug. 29, 2023, 
+###Mia's request: could you please plot the number of invitations; verifications, no activities; survey only, 
+###blood only, survey+blood (in other words, use the same variables from Fig 3 in the weekly metrics report and add number of invitations) with the x-axis == date (like in Fig 1) to create a cumulative picture of these numbers?
+##start time: "2022-01-01" 
+###the number of invitations (active_recruits.cum); verifications, no activitie; survey only (), blood only, survey+blood
+##follow the data in Operational weekly report on resp_veri in fig1,
+
+ bq_auth()
+#The bigrquery package is requesting access to your Google account.
+#Select a pre-authorised account or enter '0' to obtain a new token.
+#Press Esc/Ctrl + C to cancel.
+
+  2 
+  
+  project <- "nih-nci-dceg-connect-prod-6d04"
+  billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
+  
+  recr_noinact_wl1 <- readRDS(paste("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit",currentDate,".rds",sep=""))
+# 
+ data <- recr_noinact_wl1[which(recr_noinact_wl1$d_512820379 != 180583933 | recr_noinact_wl1$d_821247024 == 197316935),] #0 removeal
+# 
+ data <- recr_noinact_wl1[which (recr_noinact_wl1$d_821247024 != 922622075 | recr_noinact_wl1$d_512820379 !=486306141),] #248
+# 
+# #for the verification mode as a hierachy one: outreach&manual, manual and automatical: the automation only be the automation without any mannual checks
+# data <- data %>% mutate(race = case_when(state_d_684926335 == 635279662 | state_d_849518448 == 768826601 | state_d_119643471 == 635279662 ~ "White" ,#768826601
+#           state_d_684926335 %in% c(232334767,401335456) | state_d_849518448 == 181769837 |
+#                                           state_d_119643471 == 232334767| state_d_119643471  ==211228524|state_d_119643471 ==308427446| state_d_119643471  ==432722256| state_d_119643471  ==232663805| state_d_119643471  ==785578696| state_d_119643471  ==200929978| state_d_119643471  ==490725843| state_d_119643471  == 965998904 ~ "Other", #181769837
+#                                          state_d_684926335 == 178420302  | state_d_849518448 ==178420302 | state_d_119643471 == 986445321| state_d_119643471  == 746038746| state_d_119643471  == 178420302 | (is.na(state_d_119643471) & d_827220437== 657167265) ~ "Unknown"),
+#                       
+#                         sex = case_when(state_d_706256705 == 536341288 | state_d_435027713 == 536341288 ~ "Female",
+#                                         state_d_706256705 == 654207589 | state_d_435027713 == 654207589 ~ "Male",
+#                                         state_d_706256705 == 830573274 ~ "Intersex or Other",
+#                                         state_d_706256705 %in% c(178420302,NA) | state_d_435027713 %in% c(178420302,NA) ~ "Unknown"),
+#                         age = case_when(state_d_934298480 == 124276120 ~ "40-45",
+#                                         state_d_934298480 == 450985724 ~ "46-50",
+#                                         state_d_934298480 == 363147933 ~ "51-55",
+#                                         state_d_934298480 == 636706443 ~ "56-60",
+#                                         state_d_934298480 == 771230670 ~ "61-65"),
+#                         recruit_type = case_when(d_512820379 == 486306141 ~ "Active",
+#                                                 d_512820379 == 854703046 ~ "Passive",
+#                                                 d_512820379 == 180583933 & d_821247024 == 197316935 ~ "Not Active But Verified"),
+#                         verified_type = case_when(d_821247024 == 197316935 & state_d_444699761	== 426360242 & state_d_953614051 == 734437214 ~ "Automated Verification", #RcrtV_Automated_v1r0
+#                                                   d_821247024 == 197316935 &  state_d_953614051	== 426360242 & (state_d_188797763 %in% c(104430631,NA)) ~ "Manual Verification",#	RcrtV_Mannual_v1r0 without outreach
+#                                                   d_821247024 == 197316935 & state_d_953614051	== 426360242 & state_d_188797763 == 353358909 ~ "Manual Verification and outreach", #	RcrtV_Mannual_v1r0
+#                         ),
+#                         active_camptype = case_when(state_d_667474224 == 926338735 ~ "Random",
+#                                                     state_d_667474224 == 348281054 ~ "Screening appointment",
+#                                                     state_d_667474224 == 324692899 ~ "Non-screening appointment",
+#                                                     state_d_667474224 == 351257378 ~ "Demographic Group",
+#                                                     state_d_667474224 == 647148178 ~ "Aging out of study",
+#                                                     state_d_667474224 == 834544960 ~ "Geographic group",
+#                                                     state_d_667474224 == 682916147 ~ "Post-screening appointment",
+#                                                     state_d_667474224 == 153365143 ~ "Technology adapters",
+#                                                     state_d_667474224 == 663706936 ~ "Low-income/health professional shortage areas",
+#                                                     state_d_667474224 == 181769837 ~ "Other",
+#                                                     state_d_667474224 == 398561594 ~ "None of these apply",
+#                                                     is.na(state_d_667474224)  ~ "NA/Unknown"),
+#                         
+#                         recrt_steps_v1r0 = case_when((d_230663853 == 104430631) ~"Never Signed-In",
+#                                                      (d_230663853 == 353358909 & d_919254129 == 104430631) ~ "Signed-in, No Consent",
+#                                                      (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 104430631) ~ "Consented, No Profile",
+#                                                      (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 353358909 & d_821247024 == 875007964) ~ "Profile, Verification Incomplete",
+#                                                      (d_230663853 == 353358909 & d_919254129 == 353358909 & d_699625233 == 353358909 & d_821247024 %in% c(197316935,219863910,922622075)) ~ "Verification Complete"),
+#                         Rcrt_Verified_v1r0 = ifelse(is.na(d_821247024) | d_821247024 != 197316935, 104430631, 353358909),
+#                         verified = case_when(d_821247024 == 875007964 ~ "Not yet verified",
+#                                              d_821247024 == 197316935  ~ "Verified",
+#                                              d_821247024 ==  219863910 ~ "Cannot be verified",
+#                                              d_821247024 ==  922622075 ~ "Duplicate",
+#                                              d_821247024 ==  160161595 ~ "Outreach timed out"),                                             
+#                         Rcrt_completion_v1r0 = case_when((d_821247024 == 875007964) ~ 104430631,
+#                                                          (d_821247024 %in% c(197316935,219863910,922622075)) ~ 353358909),
+#                         verified = case_when(d_821247024 == 875007964 ~ "Not yet verified",
+#                                              d_821247024 == 197316935  ~ "Verified",
+#                                              d_821247024 ==  219863910 ~ "Cannot be verified",
+#                                              d_821247024 ==  922622075 ~ "Duplicate",
+#                                              d_821247024 ==  160161595 ~ "Outreach timed out"),
+#                         
+#                         Preconsent = case_when(state_d_158291096 == 104430631 ~ "No", #d_158291096	as	RcrtSI_OptOut_v1r0,
+#                                                state_d_158291096 == 353358909 ~ "Yes"),
+#                         SSN = case_when(d_311580100 == 353358909 ~ "Full SSN Given",
+#                                         d_311580100 == 104430631 & d_914639140 == 353358909 ~ "Partial SSN Given",
+#                                         d_311580100 == 104430631 & d_914639140 == 104430631 ~ "No SSN Given"),
+#                         CSSigned = case_when(d_230663853 ==353358909 & d_919254129 == 104430631 ~ "Signed-In, no Consent",
+#                                              d_230663853 == 104430631 & d_919254129 == 104430631 ~ "Never Signed-In",
+#                                              d_230663853 ==353358909 & d_919254129 == 353358909 ~"Signed-In, Consent Submitted"),
+#                         biocol_type = case_when(d_878865966 ==353358909 & d_167958071 == 353358909 & d_684635302 == 353358909 ~ "All 3 sample Donations",
+#                                                 d_878865966 ==353358909 & d_167958071 == 353358909 & d_684635302 == 104430631 ~ "Blood & Urine",
+#                                                 d_878865966 ==353358909 & d_167958071 == 104430631 & d_684635302 == 353358909 ~ "Blood & Mouthwash",
+#                                                 d_878865966 ==104430631 & d_167958071 == 353358909 & d_684635302 == 353358909 ~ "Mouthwash & Urine",
+#                                                 d_878865966 ==353358909 & d_167958071 == 104430631 & d_684635302 == 104430631 ~ "Blood Only",
+#                                                 d_878865966 ==104430631 & d_167958071 == 353358909 & d_684635302 == 104430631 ~ "Urine Only",
+#                                                 d_878865966 ==104430631 & d_167958071 == 104430631 & d_684635302 == 353358909 ~ "Mouthwash Only",
+#                                                 d_878865966 ==104430631 & d_167958071 == 104430631 & d_684635302 == 104430631 ~ "No Samples"),
+#                         Msrv_complt=case_when(d_100767870==353358909 ~ "All 4 Survey Sections",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 != 231311385 & d_976570371 != 231311385 & d_663265240 != 231311385 ~ "BOH only",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 == 231311385 & d_976570371 != 231311385 & d_663265240 != 231311385 ~ "BOH and MRE",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 != 231311385 & d_976570371 == 231311385 & d_663265240 != 231311385 ~ "BOH and SAS",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 != 231311385 & d_976570371 != 231311385 & d_663265240 == 231311385 ~ "BOH and LAW",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 == 231311385 & d_976570371 == 231311385 & d_663265240 != 231311385 ~ "BOH, MRE, and SAS",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 == 231311385 & d_976570371 != 231311385 & d_663265240 == 231311385 ~ "BOH, MRE, and LAW",
+#                                               d_100767870==104430631 & d_949302066 == 231311385 & d_536735468 != 231311385 & d_976570371 == 231311385 & d_663265240 == 231311385 ~ "BOH, SAS, and LAW",
+#                                               d_100767870==104430631 & d_949302066 != 231311385 & d_536735468 != 231311385 & d_976570371 != 231311385 & d_663265240 != 231311385 ~ "No Survey Sections"))
+#  
+# #No Samples	Blood only	Urine only	Mouthwash only	Blood and Urine	Blood and Mouthwash	Urine and Mouthwash	All 3 Sample Donations
+# data$biocol_type <- factor(data$biocol_type, levels=c("No Samples","Blood Only","Urine Only","Mouthwash Only","Blood & Urine","Blood & Mouthwash","Mouthwash & Urine","All 3 sample Donations"))
+
+
+
+modules <- c("d_100767870","d_949302066","d_536735468","d_663265240","d_976570371","d_517311251","d_832139544","d_264644252","d_770257102")
+##for biospecimen 
+# recrver1$BioFin_BaseMWCol_v1r0  <-factor(recrver1$d_684635302,exclude=NULL)
+# recrver1$BioFin_BaseBloodCol_v1r0 <- factor(recrver1$d_878865966,exclude=NULL)
+# recrver1$BioFin_BaseUrineCol_v1r0 <- factor(recrver1$d_167958071,exclude=NULL)
+# recrver1$SrvBLM_ResSrvCompl_v1r0 <-factor(recrver1$d_265193023,exclude=NULL)
+# recrver1$BL_BioSpm_MWSetting_v1r0 <- factor(recrver1$d_173836415_d_266600170_d_915179629,levels=c("Clinical","Research","Home"))
+# recrver1$BL_BioSpm_UrineSetting_v1r0 <- factor(recrver1$d_173836415_d_266600170_d_718172863, levels=c("Clinical","Research","Home"))
+# recrver1$BL_BioSpm_BloodSetting_v1r0 <- factor(recrver1$d_173836415_d_266600170_d_592099155,levels=c("Clinical","Research","Home"))
+
+###For research collections you can the baseline BioFin_ variables for blood, urine, mouthwash. 
+##research collection time:
+# 170 d_173836415_d_266600170_d_561681068                                 Date/time Research Blood Collected
+# d_173836415_d_266600170_d_847159717                                 Date/time Research Urine Collected
+#d_173836415_d_266600170_d_448660695                                      Date/time Mouthwash Collected
+###For clinical samples you can use the 'any clinical sample' variable that includes blood or urine.
+#d_173836415_d_266600170_d_139245758                                 Date/time Clinical Urine Collected
+# d_173836415_d_266600170_d_982213346                                 Date/time Clinical Blood Collected
+#on the clinical biospecimen collection that not every participants had their blood or urine collection time as d_173836415_d_266600170_d_982213346 Date/time Clinical Blood Collected (BioClin_ClinBloodTime_v1r0), but all of participants with clinical blood collections should have their blood receiving time as d_173836415_d_266600170_d_398645039 (BioClin_DBBloodRRLDt_v1r0), same as the clinical urine collections, confirmed with Michelle "that sounds right. The clinical collection times BioClin_ClinBloodTime_v1r0 and BioClin_ClinUrineTime_v1r0 will come a few days later." Therefore, when the collection times of clinical collection are not prompt updated (available), the receiving time can be altenative for those clinical collection without collection times.
+##July. 10, 2023, as Michelle and Amelia asked to update the completion concept as the completions of both 
+###baseline surveys and blood collection as yes, I now update the weekly log tables on July. 22
+###request via Github https://github.com/Analyticsphere/metricsReportsRequests/issues/39:
+# #(3) Cumulative Completed All Participant Study Activities
+# #(4) Completed All Participant Study Activity Response Ratio among Invited = Completed All Activities/ Invited
+# #(5) Completed All Participant Study Activity Response Ratio among Verified = Completed All Activities/ Verified
+# #(6) Completed all Participant Study Activities per week
+
+bio.col <- c("d_684635302","d_878865966", "d_167958071", "d_173836415_d_266600170_d_915179629", "d_173836415_d_266600170_d_718172863", "d_173836415_d_266600170_d_592099155", "d_173836415_d_266600170_d_561681068", "d_173836415_d_266600170_d_847159717", "d_173836415_d_266600170_d_448660695", "d_173836415_d_266600170_d_139245758", "d_173836415_d_266600170_d_541311218", "d_173836415_d_266600170_d_224596428", "d_173836415_d_266600170_d_740582332", "d_173836415_d_266600170_d_982213346", "d_173836415_d_266600170_d_398645039", "d_173836415_d_266600170_d_822274939")
+
+###clinical collection time:
+clc.bldtm <- c("d_173836415_d_266600170_d_769615780","d_173836415_d_266600170_d_822274939","d_173836415_d_266600170_d_398645039","d_173836415_d_266600170_d_982213346","d_173836415_d_266600170_d_740582332")
+clc.urinetm <- c("d_173836415_d_266600170_d_139245758","d_173836415_d_266600170_d_224596428","d_173836415_d_266600170_d_541311218","d_173836415_d_266600170_d_939818935","d_173836415_d_266600170_d_740582332")
+var.list <- c("token","Connect_ID","d_821247024","d_914594314","d_512820379","state_d_158291096","d_471593703","d_827220437",
+              "d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_731498909",bio.col,modules)
+
+select <- paste(var.list,collapse=",")
+#query <-  eval(parse(text=paste("bq_project_query(project, query=\"SELECT", select,"FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' and (d_512820379 !=  '486306141' or d_821247024 != '922622075') \")",sep=" ")))
+
+#data <- bq_table_download(query, bigint="integer64",n_max = Inf, page_size = 10000)
+
+numbers_only <- function(x) !grepl("\\D", x)
+ 
+ ###convert the numeric
+
+cnames <- names(data)
+# #  to check variables in recr_noinact_wl1
+for (i in 1: length(cnames)){
+   varname <- cnames[i]
+   var<-pull(data,varname)
+   data[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+}
+
+data <- data[which(data$d_512820379 != 180583933 | data$d_821247024 == 197316935),] #0 removeal
+
+data <- data[which (data$d_821247024 != 922622075 | data$d_512820379 !=486306141),] #248
+
+veri_resp <- data[which(data$d_512820379 != 486306141 | data$d_821247024 != 922622075 ),var.list] %>%
+  mutate(recru_time = ymd_hms(d_471593703),
+         verified_time = ymd_hms(d_914594314),
+         elgible.time = ymd_hms(d_130371375_d_266600170_d_787567527))
+veri_resp$recrstart.date <-  as_date(min(ymd_hms(veri_resp$d_471593703),na.rm=TRUE))
+
+
+veri_resp <- apply_labels(veri_resp,d_827220437 = "Site",#RcrtES_Site_v1r0
+                          d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, 
+                                          "Kaiser Permanente Colorado" = 125001209, "Kaiser Permanente Georgia" = 327912200,
+                                          "Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599, 
+                                          "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, 
+                                          "University of Chicago Medicine" = 809703864, "National Cancer Institute" = 517700004,
+                                          "National Cancer Institute" = 13,"Other" = 181769837))
+veri_resp$site <- factor(veri_resp$d_827220437,
+                         levels=c("HealthPartners", "Henry Ford Health System","Marshfield Clinic Health System",
+                                  "Sanford Health", "University of Chicago Medicine","Kaiser Permanente Colorado",
+                                  "Kaiser Permanente Georgia","Kaiser Permanente Hawaii","Kaiser Permanente Northwest",
+                                  "National Cancer Institute","Other"))
+veri_resp$site <- droplevels(veri_resp$site)
+# veri_resp$recru_time <- ymd_hms(veri_resp$d_471593703)
+# veri_resp$verified_time <- ymd_hms(veri_resp$d_914594314)
+# veri_resp$recrstart.date <- as_date(min(ymd_hms(veri_resp$d_471593703),na.rm=TRUE))
+recrstart.date <- as_date(min(ymd_hms(veri_resp$recru_time),na.rm=TRUE))
+wday(unique(veri_resp$recrstart.date), week_start = 1)
+#[1] 5
+as_date(recrstart.date-days(5))
+#[1] "2021-07-18" #Sunday the censoring starting day
+wday(as_date(recrstart.date-days(5)),week_start=1)
+#[1] 1 #Sunday
+veri_resp$recruit.week <- ceiling(as.numeric(difftime(as_date(veri_resp$recru_time), as_date(veri_resp$recrstart.date-days(5)),units="days"))/7) #to lock at Monday as the start of week
+veri_resp$recruit.week.date <- veri_resp$recrstart.date + days(2) + dweeks(veri_resp$recruit.week-1) #to present the date of the starting date in the following week
+summary(as_date(veri_resp$recruit.week.date))
+# Min.      1st Qu.       Median         Mean      3rd Qu.         Max. 
+# "2021-07-25" "2022-08-14" "2022-11-06" "2022-10-25" "2023-01-15" "2023-03-26" 
+veri_resp$verified.week <- ceiling(as.numeric(difftime(as_date(ymd_hms(veri_resp$d_914594314)),as_date(veri_resp$recrstart.date-days(5)),units="days"))/7)
+veri_resp$verified.week.date <- (veri_resp$recrstart.date) + days(2)+ dweeks(veri_resp$verified.week-1)
+
+min(as_date(ymd_hms(veri_resp$verified_time)),na.rm=TRUE)
+# [1] "2021-07-27"
+unique(as_date(min(veri_resp$verified.week.date,na.rm=TRUE)))
+#[1] "2021-08-01"
+unique(as_date(max(veri_resp$verified.week.date,na.rm=TRUE)))
+#[1] "2023-03-26"
+wday(as_date(recrstart.date-days(5)),week_start=1)
+#7 Sunday
+###to create the time censoring variables by week;
+veri_resp <- veri_resp[which(veri_resp$recruit.week.date < currentDate),]
+ #as Michelle and Amelia want to set up the censor week as Monday to Sunday (the Sunday would be the last day of the week, and the report is done every Monday), the data on the week of the checking day would be excluded from the analytical dataset 
+#verified  over time:
+
+recruit.wk.active <- veri_resp[which(veri_resp$d_512820379==486306141),] %>% 
+  group_by(recruit.week,recruit.week.date) %>%
+  dplyr::summarize(active_recruits=n(),
+                   recruitdate_max=max(recru_time,rm.na=T))
+
+verified.wk.active <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_512820379==486306141 & veri_resp$verified.week.date < currentDate),] %>% 
+  group_by(verified.week,verified.week.date) %>%
+  dplyr::summarize(active_verifieds=n(),
+                   verified_activetime.max=max(verified_time,rm.na=T))
+
+verified.wk.total <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$verified.week.date < currentDate),] %>% 
+  group_by(verified.week,verified.week.date) %>%
+  dplyr::summarize(total_verifieds=n(),
+                   verified_time.max=max(verified_time,rm.na=T))
+
+verified.wk.all <- merge(verified.wk.active,verified.wk.total, by.x = c("verified.week","verified.week.date"),by.y=c("verified.week","verified.week.date"),all.y=TRUE,all.x=TRUE)
+verified.wk.all$verified.week.date[is.na(verified.wk.all$verified.week.date)]<- recrstart.date + days(3)+ dweeks(verified.wk.all$verified.week-1)
+recrui_wk_verified <- merge(recruit.wk.active,verified.wk.all, by.x=c("recruit.week","recruit.week.date"),by.y=c("verified.week","verified.week.date"),all.x=TRUE,all.y=TRUE)
+recrui_wk_verified <- recrui_wk_verified %>% 
+  mutate_at(c("active_recruits","active_verifieds","total_verifieds"),~replace_na(., 0))
+
+#recrui_wk_verified <- recrui_wk_verified %>% mutate(week.date=as_date(do.call(pmax, c(select(.,ends_with('max')),na.rm=TRUE))))
+
+recrui_wk_verified <- recrui_wk_verified %>% arrange(recruit.week,recruit.week.date)
+
+# passive recruits are the passive verified
+recrui_wk_verified$passive_verifieds <- recrui_wk_verified$total_verifieds-recrui_wk_verified$active_verifieds #new passive recruitment
+recrui_wk_verified$active_recruits.cum <- cumsum(recrui_wk_verified$active_recruits)
+recrui_wk_verified$passive_verifieds.cum <- cumsum(recrui_wk_verified$passive_verifieds)
+recrui_wk_verified$active_verifieds.cum <- cumsum(recrui_wk_verified$active_verifieds)
+
+recrui_wk_verified$total_recruits <- recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verifieds ##the total recruits till that week
+
+recrui_wk_verified$total_recruits.cum <- cumsum(recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verifieds) ##the total recruits till that week
+
+recrui_wk_verified$total_verified.cum <- cumsum(recrui_wk_verified$total_verifieds)
+
+#new response rate:
+recrui_wk_verified$new.active.response.rate <- ifelse(recrui_wk_verified$active_recruits >0, 100*(recrui_wk_verified$active_verifieds/recrui_wk_verified$active_recruits), 0)
+recrui_wk_verified$new.passive.response.rate <- ifelse(recrui_wk_verified$active_recruits!=0, 100*(recrui_wk_verified$passive_verifieds/recrui_wk_verified$active_recruits),NA)
+recrui_wk_verified$new.total.response.rate <- ifelse(recrui_wk_verified$active_recruits>0, 100*(recrui_wk_verified$total_verifieds/recrui_wk_verified$active_recruits), 0)
+
+#cumalative rate
+recrui_wk_verified$cum.active.response.rate <- 100*(cumsum(recrui_wk_verified$active_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+recrui_wk_verified$cum.passive.response.rate <- 100*(cumsum(recrui_wk_verified$passive_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+recrui_wk_verified$cum.total.response.rate <- 100*(cumsum(recrui_wk_verified$total_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+
+
+veri_act <- filter(veri_resp,d_821247024==197316935) %>% 
+  mutate(law.time = ymd_hms(d_264644252),
+         sas.time = ymd_hms(d_770257102),
+         mre.time = ymd_hms(d_832139544),
+         boh.time = ymd_hms(d_517311251),
+         bldcol.time = case_when(d_878865966 == 353358909 ~ pmin(as.POSIXct(d_173836415_d_266600170_d_561681068),as.POSIXct(d_173836415_d_266600170_d_982213346),as.POSIXct(d_173836415_d_266600170_d_398645039),as.POSIXct(d_173836415_d_266600170_d_822274939),na.rm=TRUE)),
+         urine.time = case_when(d_167958071 == 353358909 ~ pmin(as.POSIXct(d_173836415_d_266600170_d_847159717),as.POSIXct(d_173836415_d_266600170_d_139245758),as.POSIXct(d_173836415_d_266600170_d_541311218),as.POSIXct(d_173836415_d_266600170_d_224596428),na.rm=TRUE)),
+         mw.time = ymd_hms(d_173836415_d_266600170_d_448660695),
+         biospeDonation = ifelse(d_878865966 %in% c(104430631,NA)  & d_167958071 %in% c(104430631,NA) & d_684635302 %in% c(104430631,NA),"No Sample Donations",
+                                 ifelse(d_878865966 == 353358909 & d_167958071 == 353358909 & d_684635302 == 353358909,"Completed All 3 Sample Donations", 
+                                        "Completed Some but Not All 3 Sample Donations")),
+         biospeComplete = case_when(biospeDonation =="Completed All 3 Sample Donations" | 
+                                      (d_173836415_d_266600170_d_592099155==664882224 & d_878865966 == 353358909 & d_167958071 == 353358909)  ~ 1,
+                                    biospeDonation == "No Sample Donations" | ( biospeDonation == "Completed Some but Not All 3 Sample Donations" & 
+                                                                                  d_173836415_d_266600170_d_592099155 %in% c(534621077,NA)) | 
+                                      d_173836415_d_266600170_d_592099155==664882224 & d_878865966 %in% c(104430631, NA) | d_167958071 %in% c(104430631, NA) ~ 0),
+         Module.complete = ifelse(d_100767870==353358909,"Complete","NotComplete")
+         )
+
+veri_act$module.tm <- do.call(pmax, c(veri_act[,c("sas.time","mre.time","law.time","boh.time")],na.rm=TRUE))
+veri_act <- veri_act%>% 
+  mutate(module.time  = as_datetime(ifelse(d_100767870 ==353358909,module.tm,ifelse( d_100767870 ==104430631,NA,NA))),
+         bioany.time = pmin(as.POSIXct(bldcol.time),as.POSIXct(urine.time),as.POSIXct(mw.time), na.rm = TRUE), #the earliest time of any collection
+         biocol.time = pmax(as.POSIXct(bldcol.time),as.POSIXct(urine.time),as.POSIXct(mw.time), na.rm = TRUE)) ##the most recent time of any collection
+
+veri_act <- veri_act%>% mutate(
+  module.week = ifelse(!is.na(module.time),ceiling(as.numeric(difftime(as_date(module.time)+days(5),as_date(recrstart.date),units="days"))/7),NA),
+  anybio.week = ifelse(!is.na(bioany.time),ceiling(as.numeric(difftime(as_date(bioany.time+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  biocol.week = ifelse(!is.na(biocol.time),ceiling(as.numeric(difftime(as_date(biocol.time+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  bldcol.week = ifelse(!is.na(bldcol.time),ceiling(as.numeric(difftime(as_date(bldcol.time+days(5)),as_date(recrstart.date), units="days"))/7),NA))
+
+##to recreate the new variable of th competions based on the updated concept of completions as the completions 
+###of all four baseline modules and blood collections as Yes.
+veri_act <- veri_act%>% mutate(allacts0 = case_when(d_100767870 == 353358909 & biospeComplete==1 ~ 353358909,
+                                                    d_100767870 == 104430631  | biospeComplete %in% c(0,NA) ~ 104430631 ),
+                               allacts1 = case_when(d_100767870 == 353358909 & d_878865966 == 353358909 ~ 353358909,
+                                                    d_100767870 == 104430631  | d_878865966 %in% c(0,NA) ~ 104430631 ))
+# veri_act$allacts.time <- apply(veri_act[,c("module.time","biocol.time")],1,max)
+# veri_act$allacts.week <- ceiling(as.numeric(difftime(as_date(ymd_hms(veri_act$allacts.time)+days(5)),as_date(recrstart.date), units="days"))/7)
+
+veri_act$allacts.time1 <- apply(veri_act[,c("module.time","bldcol.time")],1,max)
+veri_act$allacts.week1 <- ceiling(as.numeric(difftime(as_date(as.POSIXct(veri_act$allacts.time1)+days(5)),
+                                                      as_date(recrstart.date), units="days"))/7)
+
+allacts.wk.total <- filter(veri_act,allacts1==353358909) %>% arrange(allacts.week1,verified.week) %>% 
+  group_by(allacts.week1)%>%
+  dplyr::summarize(total_allacts=n(),
+                   allacts.time.max=max(allacts.time1,rm.na=T)) #blood + surveys
+
+module.wk.total <- filter(veri_act,d_100767870==353358909) %>% arrange(module.week,verified.week) %>% 
+  group_by(module.week)%>%
+  dplyr::summarize(total_module=n(),
+                   module.time.max=max(as_date(module.time),rm.na=T))
+
+bldcol.wk.total <- filter(veri_act,d_878865966 == 353358909) %>% arrange(bldcol.week,verified.week) %>% 
+  group_by(bldcol.week)%>%
+  dplyr::summarize(total_blood=n(),
+                   bldcol.time.max=max(as_date(bldcol.time),rm.na=T))
+
+dt.merged1 <- merge(module.wk.total,bldcol.wk.total,by.x="module.week",by.y="bldcol.week",all.x=TRUE,all.y=TRUE)
+dt.merged1 <- merge(dt.merged1,allacts.wk.total,by.x="module.week",by.y="allacts.week1",all.x=TRUE,all.y=TRUE)  
+#veri_wk_svybld <- merge(verified.wk.total, dt.merged1,by.x="verified.week",by="module.week", all.x=TRUE,all.y=TRUE)
+
+recr_svybld_wk <-  merge(recrui_wk_verified,dt.merged1, by.x="recruit.week",by.y="module.week",all.x=TRUE,all.y=TRUE)
+
+vars <- c("active_recruits","active_verifieds","passive_verifieds","total_recruits","total_verifieds","total_module","total_blood","total_allacts")
+recr_svybld_wk <- recr_svybld_wk %>% mutate_at(vars,~replace_na(., 0)) %>%  arrange(recruit.week)%>% 
+  mutate(active_recruits.cum =cumsum(active_recruits),
+         total_verified.cum = cumsum(total_verifieds),
+         active_verifieds.cum = cumsum(active_verifieds),
+         passive_verifieds.cum = cumsum(passive_verifieds),
+         total_recruits = active_recruits + passive_verifieds,
+         total_recruits.cum = cumsum(active_recruits + passive_verifieds),
+         total_module.cum=cumsum(total_module),
+         total_blood.cum=cumsum(total_blood),
+         total_bldsvy.cum=cumsum(total_allacts),
+         total_anyact = total_blood + total_module - total_allacts,
+         total_anyact.cum=cumsum(total_anyact),
+         total_veri_noact = total_verifieds - total_blood - total_module + total_allacts,
+         total_veri_noact.cum=cumsum(total_veri_noact))
+
+
+
+```
+
+## Including Plots
+
+
+```{r,eval=TRUE,echo=FALSE,include=TRUE,error=FALSE,message=FALSE,results='asis'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+  # levels(veri_resp$site)
+# [1] "HealthPartners"                  "Henry Ford Health System"        "Marshfield Clinic Health System"
+# [4] "Sanford Health"                  "University of Chicago Medicine"  "Kaiser Permanente Colorado"     
+# [7] "Kaiser Permanente Georgia"       "Kaiser Permanente Hawaii"        "Kaiser Permanente Northwest" 
+  # 
+  # d_827220437 == '125001209' ~ 1900, #KPCO#
+  # d_827220437 == '327912200'  ~ 1300,#KPGA#
+  # d_827220437 == '300267574'  ~ 790, #KPHI #
+  # d_827220437 == '452412599'  ~ 1900, #KPNW#
+  # d_827220437 == '303349821'  ~ 760, #Marshfield#
+  # d_827220437 == '531629870'  ~ 2247, #HP#
+  # d_827220437 == '548392715'  ~ 1600, #HFHS#
+  # d_827220437 == '657167265'  ~ 1015, #SH#
+  # d_827220437 == '809703864'  ~ 2500, UChicago 
+
+expected <- c(2247,1600,760,1015,2500,1900,1300,790,1900)
+Expected <- sum(expected)
+max_inv <- max(recr_svybld_wk$active_recruits.cum)
+
+#figure 1
+break_inv <- seq(50000,50000*round(max_inv/50000,0),50000)
+Invites_all.plot <- ggplot(recr_svybld_wk,aes(y=active_recruits.cum,x=as.Date(recruit.week.date))) + 
+  geom_line() +    geom_point()+
+           scale_y_continuous(name="Number of Invitations", limits=c(0,max_inv),breaks=break_inv) +
+           scale_x_date(name="Date",limit=as.Date(c("2022-01-01",currentDate)),date_labels = "%y-%m-%d", date_breaks = "1 month",expand=c(0,0))  +
+           ggtitle(paste("Cumulative Number of Invitations Through",currentDate,"Overall",sep=" "))+
+           theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+                  axis.title.y = element_text(size = 14, face = "bold",color="black"),
+                  plot.title = element_text(face="bold", size=18),
+                  # Remove panel border
+                  panel.border = element_blank(),  
+                  # Remove panel grid lines
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  # Remove panel background
+                  panel.background = element_blank(),
+                  # Add axis line
+                  axis.line = element_line(colour = "grey") ,
+                  ##put the legend in the plot
+                  legend.position = c(.2, .6),
+                  legend.margin = margin(1, 1, 1, 1)
+           ) 
+
+veri_svybld_wk <- melt(recr_svybld_wk[,c("recruit.week.date","total_anyact.cum","total_verified.cum", "total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum")],#id.vars="Site", 
+     measure.vars=c("total_verified.cum", "total_anyact.cum","total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum"), variable.name="Verified_type",
+     value.name="Verified_Activities_n") %>% 
+  mutate(verified.activities=case_when(Verified_type =="total_verified.cum" ~ "Verified", 
+                                       Verified_type =="total_anyact.cum" ~ "Surveys or Blood",
+                                       Verified_type =="total_blood.cum" ~ "Blood", 
+                                       Verified_type =="total_module.cum" ~ "Surveys", 
+                                       Verified_type =="total_bldsvy.cum" ~ "Blood + Surveys",
+                                       Verified_type =="total_veri_noact.cum" ~ "Verified, no Activities")) %>%
+  arrange(verified.activities)
+
+veri_svybld_wk$verified.activities <- factor(veri_svybld_wk$verified.activities, 
+                                                 levels=c("Verified, no Activities","Blood + Surveys","Blood","Surveys","Surveys or Blood","Verified"))
+max_y <- max(veri_svybld_wk$Verified_Activities_n)
+breaks <- seq(1000,1000*round(max_y/1000,0),1000)
+
+Fig_all.plot <- ggplot(veri_svybld_wk,aes(y=Verified_Activities_n,x=as.Date(recruit.week.date),color=verified.activities)) + 
+  geom_line() +    geom_point()+
+  scale_color_manual(values = c("lightblue","purple","red","blue","green","#BEBADA"), 
+                    name="Baseline Study Activities" ,labels=(c("Verified, no Activities","Surveys + Blood","Blood","Surveys","Surveys or Blood","Verified")))+
+  geom_hline(yintercept = 14012, color = "black",linetype="dashed")+ 
+  annotate("text", x=as.Date("2022-04-01"), y=14300, label="TO6 Expectations",color="red")+
+           scale_y_continuous(name="Number of Participants", limits=c(0,max_y),breaks=breaks) +
+           scale_x_date(name="Date",limit=as.Date(c("2022-01-01",currentDate)),date_labels = "%y-%m-%d", date_breaks = "1 month",expand=c(0,0))  +
+           ggtitle(paste("Cumulative Number of Participants by Date and Baseline Study Activities \nthroughout", currentDate,"Overall",sep=" "))+
+           theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+                  axis.title.y = element_text(size = 14, face = "bold",color="black"),
+                  plot.title = element_text(face="bold", size=16),
+                  # Remove panel border
+                  panel.border = element_blank(),  
+                  # Remove panel grid lines
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  # Remove panel background
+                  panel.background = element_blank(),
+                  # Add axis line
+                  axis.line = element_line(colour = "grey") ,
+                  ##put the legend in the plot
+                  legend.position = "bottom"
+           ) 
+         
+##to combine two plots: invtitation plot + verification+activities plot with a second y axis add-in
+veri_svybld_wk0 <- melt(recr_svybld_wk[,c("recruit.week.date","active_recruits.cum","total_anyact.cum","total_verified.cum", "total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum")],#id.vars="Site", 
+                       measure.vars=c("active_recruits.cum","total_verified.cum", "total_anyact.cum","total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum"), variable.name="Verified_type",
+                       value.name="Verified_Activities_n") %>% 
+  mutate(verified.activities=case_when(Verified_type =="active_recruits.cum" ~ "Invited", 
+                                       Verified_type =="total_verified.cum" ~ "Verified", 
+                                       Verified_type =="total_anyact.cum" ~ "Surveys or Blood",
+                                       Verified_type =="total_blood.cum" ~ "Blood", 
+                                       Verified_type =="total_module.cum" ~ "Surveys", 
+                                       Verified_type =="total_bldsvy.cum" ~ "Blood + Surveys",
+                                       Verified_type =="total_veri_noact.cum" ~ "Verified, no Activities"),
+         Verified_Activities_n1 = ifelse(Verified_type =="active_recruits.cum",Verified_Activities_n, Verified_Activities_n*10)) %>%
+  arrange(verified.activities)
+
+veri_svybld_wk0$verified.activities <- factor(veri_svybld_wk0$verified.activities, 
+                                             levels=c("Verified, no Activities","Blood + Surveys","Blood","Surveys","Surveys or Blood","Verified","Invited"))
+
+max_y0 <- max(veri_svybld_wk0$Verified_Activities_n1)
+breaks0 <- seq(0,20000*round(max_y0/20000,0),20000)
+         
+Fig1_combo.plot <-ggplot(veri_svybld_wk0,aes(y=Verified_Activities_n1,x=as.Date(recruit.week.date),color=verified.activities)) + 
+    geom_line() +    geom_point()+
+    scale_color_manual(values = c("lightblue","purple","red","blue","green","yellow","#BEBADA"), 
+                       name="Baseline Study Activities" ,labels=(c("Verified, no Activities","Surveys + Blood","Blood",
+                                                                   "Surveys","Surveys or Blood","Verified","Invited")))+
+    geom_hline(yintercept = 140120, color = "black",linetype = "dashed")+ 
+    annotate("text", x=as.Date("2022-04-01"), y=146000, label="TO6 Expected",color="purple")+
+    scale_y_continuous(labels = scales::label_comma(),name="# Invitations", limits=c(0,max_y0),breaks=breaks0,sec.axis = sec_axis( ~ . /10 , name = "# of Participants with Completed \nBaseline Study Activities",breaks=breaks0/10,labels = scales::label_comma())) +
+    coord_cartesian(ylim =c(0,max_y0)) +
+    scale_x_date(name="Date",limit=as.Date(c("2021-12-31",as.Date(currentDate))),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+    ggtitle(paste("Cumulative Participants by Date and Baseline Study Activities \nvs Number of Invitations throughout", currentDate,"Overall",sep=" "))+
+    theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+           axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90, hjust=0.5),
+           plot.title = element_text(face="bold", size=18),
+           # Remove panel border
+           panel.border = element_blank(),  
+           # Remove panel grid lines
+           panel.grid.major = element_blank(),
+           panel.grid.minor = element_blank(),
+           # Remove panel background
+           panel.background = element_blank(),
+           # Add axis line
+           axis.line = element_line(colour = "grey") ,
+           ##put the legend in the plot
+           legend.position = "bottom"
+    ) 
+
+
+  recruit.wk.active.site <- veri_resp[which(veri_resp$d_512820379==486306141),] %>% 
+    group_by(recruit.week,site,recruit.week.date) %>%
+    dplyr::summarize(active_recruits=n(),
+                     recruitdate_max=max(recru_time,rm.na=T))
+  
+  verified.wk.active.site <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_512820379==486306141 & veri_resp$verified.week.date < currentDate),] %>% 
+    group_by(verified.week,site,verified.week.date) %>%
+    dplyr::summarize(active_verifieds=n(),
+                     verified_activetime.max=max(verified_time,rm.na=T))
+  
+  verified.wk.total.site <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$verified.week.date < currentDate),] %>% 
+    group_by(verified.week,site,verified.week.date) %>%
+    dplyr::summarize(total_verifieds=n(),
+                     verified_time.max=max(verified_time,rm.na=T))
+  
+  verified.wk.all.site <- merge(verified.wk.active.site,verified.wk.total.site, by.x = c("verified.week","site","verified.week.date"),by.y=c("verified.week","site","verified.week.date"),all.y=TRUE,all.x=TRUE)
+  verified.wk.all.site$verified.week.date[is.na(verified.wk.all.site$verified.week.date)]<- recrstart.date + days(3)+ dweeks(verified.wk.all.site$verified.week-1)
+  recrui_wk_verified.site <- merge(recruit.wk.active.site,verified.wk.all.site, by.x=c("recruit.week","recruit.week.date","site"),by.y=c("verified.week","verified.week.date","site"),all.x=TRUE,all.y=TRUE)
+  recrui_wk_verified.site <- recrui_wk_verified.site %>% 
+    mutate_at(c("active_recruits","active_verifieds","total_verifieds"),~replace_na(., 0))
+  
+  #recrui_wk_verified <- recrui_wk_verified %>% mutate(week.date=as_date(do.call(pmax, c(select(.,ends_with('max')),na.rm=TRUE))))
+  
+  recrui_wk_verified.site <- recrui_wk_verified.site %>% arrange(site,recruit.week,recruit.week.date)
+  
+  #passive recruits are the passive verified
+  recrui_wk_verified.site$passive_verifieds <- recrui_wk_verified.site$total_verifieds-recrui_wk_verified.site$active_verifieds #new passive recruitment
+  # recrui_wk_verified$active_recruits.cum <- cumsum(recrui_wk_verified$active_recruits)
+  # recrui_wk_verified$passive_verifieds.cum <- cumsum(recrui_wk_verified$passive_verifieds)
+  # recrui_wk_verified$active_verifieds.cum <- cumsum(recrui_wk_verified$active_verifieds)
+  # 
+  recrui_wk_verified.site$total_recruits <- recrui_wk_verified.site$active_recruits + recrui_wk_verified.site$passive_verifieds ##the total recruits till that week
+  # 
+  # recrui_wk_verified$total_recruits.cum <- cumsum(recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verifieds) ##the total recruits till that week
+  # 
+  # recrui_wk_verified$total_verified.cum <- cumsum(recrui_wk_verified$total_verifieds)
+  # 
+  # #new response rate:
+  # recrui_wk_verified$new.active.response.rate <- ifelse(recrui_wk_verified$active_recruits >0, 100*(recrui_wk_verified$active_verifieds/recrui_wk_verified$active_recruits), 0)
+  # recrui_wk_verified$new.passive.response.rate <- ifelse(recrui_wk_verified$active_recruits!=0, 100*(recrui_wk_verified$passive_verifieds/recrui_wk_verified$active_recruits),NA)
+  # recrui_wk_verified$new.total.response.rate <- ifelse(recrui_wk_verified$active_recruits>0, 100*(recrui_wk_verified$total_verifieds/recrui_wk_verified$active_recruits), 0)
+  # 
+  # #cumalative rate
+  # recrui_wk_verified$cum.active.response.rate <- 100*(cumsum(recrui_wk_verified$active_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+  # recrui_wk_verified$cum.passive.response.rate <- 100*(cumsum(recrui_wk_verified$passive_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+  # recrui_wk_verified$cum.total.response.rate <- 100*(cumsum(recrui_wk_verified$total_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+  
+  allacts.wk.total.site <- filter(veri_act,allacts1==353358909) %>% arrange(site,allacts.week1,verified.week) %>% 
+    group_by(site,allacts.week1)%>%
+    dplyr::summarize(total_allacts=n(),
+                     allacts.time.max=max(allacts.time1,rm.na=T)) #blood + surveys
+  
+  module.wk.total.site <- filter(veri_act,d_100767870==353358909) %>% arrange(site,module.week,verified.week) %>% 
+    group_by(site,module.week)%>%
+    dplyr::summarize(total_module=n(),
+                     module.time.max=max(as_date(module.time),rm.na=T))
+  
+  bldcol.wk.total.site <- filter(veri_act,d_878865966 == 353358909) %>% arrange(site,bldcol.week,verified.week) %>% 
+    group_by(site,bldcol.week)%>%
+    dplyr::summarize(total_blood=n(),
+                     bldcol.time.max=max(as_date(bldcol.time),rm.na=T))
+  
+  dt.merged1.site <- merge(module.wk.total.site,bldcol.wk.total.site,by.x=c("module.week","site"),by.y=c("bldcol.week","site"),all.x=TRUE,all.y=TRUE)
+  dt.merged1.site <- merge(dt.merged1.site,allacts.wk.total.site,by.x=c("module.week","site"),by.y=c("allacts.week1","site"),all.x=TRUE,all.y=TRUE)  
+  #veri_wk_svybld <- merge(verified.wk.total, dt.merged1,by.x="verified.week",by="module.week", all.x=TRUE,all.y=TRUE)
+  
+  recr_svybld_wk.site <-  merge(recrui_wk_verified.site,dt.merged1.site, by.x=c("recruit.week","site"),by.y=c("module.week","site"),all.x=TRUE,all.y=TRUE)
+  
+  vars <- c("active_recruits","active_verifieds","passive_verifieds","total_recruits","total_verifieds","total_module","total_blood","total_allacts")
+  recr_svybld_wk.site <- filter(recr_svybld_wk.site,as.Date(recruit.week.date) < as.Date("2023-08-28")) %>% mutate_at(vars,~replace_na(., 0)) %>%  
+    arrange(site,recruit.week)%>% group_by(site) %>%
+    mutate(active_recruits.cum =cumsum(active_recruits),
+           total_verified.cum = cumsum(total_verifieds),
+           active_verifieds.cum = cumsum(active_verifieds),
+           passive_verifieds.cum = cumsum(passive_verifieds),
+           total_recruits = active_recruits + passive_verifieds,
+           total_recruits.cum = cumsum(active_recruits + passive_verifieds),
+           total_module.cum=cumsum(total_module),
+           total_blood.cum=cumsum(total_blood),
+           total_bldsvy.cum=cumsum(total_allacts),
+           total_anyact = total_blood + total_module - total_allacts,
+           total_anyact.cum=cumsum(total_anyact),
+           total_veri_noact = total_verifieds - total_blood - total_module + total_allacts,
+           total_veri_noact.cum=cumsum(total_veri_noact))
+
+```
+  
+  
+```{r,eval=TRUE,echo=FALSE,include=FALSE,error=FALSE,message=FALSE,results='asis'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "")
+
+
+    dt_all <- melt(recr_svybld_wk.site[,c("site","recruit.week.date","active_recruits.cum","total_anyact.cum","total_verified.cum", "total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum")],id.vars=c("site","recruit.week.date"),
+               measure.vars=c("active_recruits.cum","total_verified.cum", "total_anyact.cum","total_blood.cum", "total_module.cum", "total_bldsvy.cum","total_veri_noact.cum"), variable.name="Verified_type",
+               value.name="Verified_Activities_n") %>% 
+    mutate(verified.activities=case_when(Verified_type =="active_recruits.cum" ~ "Invited",
+                                         Verified_type =="total_verified.cum" ~ "Verified", 
+                                         Verified_type =="total_anyact.cum" ~ "Surveys or Blood",
+                                         Verified_type =="total_blood.cum" ~ "Blood", 
+                                         Verified_type =="total_module.cum" ~ "Surveys", 
+                                         Verified_type =="total_bldsvy.cum" ~ "Blood + Surveys",
+                                         Verified_type =="total_veri_noact.cum" ~ "Verified, no Activities"),
+           Verified_Activities_n1 = ifelse(Verified_type =="active_recruits.cum",Verified_Activities_n, Verified_Activities_n*10)) %>%
+    arrange(site,verified.activities)
+  
+  dt_all$verified.activities <- factor(dt_all$verified.activities, 
+                                     levels=c("Verified, no Activities","Blood + Surveys","Blood","Surveys","Surveys or Blood","Verified","Invited"))
+  
+ invite.list <- list()
+  plot.site <- list()
+  plot.combo <- list()
+  for (i in 1:9){
+    s <- levels(veri_resp$site)[i]
+    max_inv <- max(recr_svybld_wk.site[which(recr_svybld_wk.site$site  == s),]$active_recruits.cum)
+    break_int <- 1000*round(max_inv/10000,0)
+    break_inv <- seq(0,10000*round(max_inv/10000,0),break_int)
+    Invites.plot <- ggplot(recr_svybld_wk.site[which(recr_svybld_wk.site$site  == s),], aes(y=active_recruits.cum,x=as.Date(recruit.week.date))) + 
+      geom_line() +    geom_point()+
+      scale_y_continuous(name="Number of Invitations", limits=c(0,max(recr_svybld_wk.site[which(recr_svybld_wk.site$site  == s),]$active_recruits.cum)),breaks=break_inv) +
+      scale_x_date(name="Date",limit=as.Date(c("2022-01-01",currentDate)),date_labels = "%y-%m-%d", date_breaks = "1 month",expand=c(0,0))  +
+      ggtitle(paste("Cumulative Number of Invitations \nthrough",currentDate,s,sep=" "))+
+      theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+             axis.title.y = element_text(size = 14, face = "bold",color="black"),
+             plot.title = element_text(face="bold", size=16),
+             # Remove panel border
+             panel.border = element_blank(),  
+             # Remove panel grid lines
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             # Remove panel background
+             panel.background = element_blank(),
+             # Add axis line
+             axis.line = element_line(colour = "grey") ,
+             ##put the legend in the plot
+      ) 
+    print(Invites.plot)
+    invite.list[[i]] <- Invites.plot 
+    
+    
+    dt<- filter(dt_all, site==s & verified.activities!="Invited")
+    expect <- expected[i]
+    exp_bound <- expect*1.05
+
+    dt$verified.activities <- factor(dt$verified.activities, 
+                                     levels=c("Verified, no Activities","Blood + Surveys","Blood","Surveys","Surveys or Blood","Verified"))
+    print(c(s,expect))
+    max_y <- max(dt$Verified_Activities_n)
+    break_int <- 100*round(max_y/1000,0)
+    break_y <- seq(0,1000*round(max_y/1000,1),break_int)
+    
+    site.plot <- ggplot(dt,mapping=aes(y=Verified_Activities_n,x=as.Date(recruit.week.date),color=verified.activities)) + 
+      geom_line() + geom_point()+
+      scale_color_manual(values = c("lightblue","purple","red","blue","green","#BEBADA"), 
+                         name="Baseline Study Activities" ,labels=(c("Verified, no Activities","Surveys + Blood","Blood",
+                                                               "Surveys","Surveys or Blood","Verified")))+
+      geom_hline(yintercept = expect, color = "black")+ 
+      annotate("text", x=as.Date("2022-04-01"), y=exp_bound, label="TO6 Expected",color="purple")+
+      scale_y_continuous(name="Number of Participants", limits=c(0,max(c(dt$Verified_Activities_n,expect,exp_bound))),breaks=c(break_y,expect)) +
+      scale_x_date(name="Date",limit=as.Date(c("2022-01-01",currentDate)),date_labels = "%y-%m-%d", date_breaks = "1 month",expand=c(0,0))  +
+      ggtitle(paste("Cumulative Number of Participants by Date and Baseline Study Activities \nthrough", currentDate,s ,sep=" "))+
+      theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+             axis.title.y = element_text(size = 14, face = "bold",color="black"),
+             plot.title = element_text(face="bold", size=16),
+             # Remove panel border
+             panel.border = element_blank(),  
+             # Remove panel grid lines
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             # Remove panel background
+             panel.background = element_blank(),
+             # Add axis line
+             axis.line = element_line(colour = "grey") ,
+             ##put the legend in the plot
+             legend.position = "bottom"
+      ) 
+    print(site.plot)
+    plot.site[[i]] <- site.plot
+    
+    #a merged plots (of two plots above)
+    dt.combo<- filter(dt_all, site==s)
+    
+    dt.combo$verified.activities <- factor(dt.combo$verified.activities, 
+                                           levels=c("Verified, no Activities","Blood + Surveys","Blood","Surveys","Surveys or Blood","Verified","Invited"))
+    max_y0 <- round(max(c(dt.combo$Verified_Activities_n1,expect*10)),0)
+    break_int0 <- 10000*round(max_y0/100000,1)
+    break_y0 <- seq(0,100000*round(max_y0/100000,1),break_int0)
+    
+   
+    
+    combo.plot <- ggplot(dt.combo,mapping=aes(y=Verified_Activities_n1,x=as.Date(recruit.week.date),color=verified.activities)) + 
+      geom_line() + geom_point()+
+      scale_color_manual(values = c("lightblue","purple","red","blue","green","yellow","#BEBADA"), 
+                         name="Baseline Study Activities" ,labels=(c("Verified, no Activities","Surveys + Blood","Blood",
+                                                               "Surveys","Surveys or Blood","Verified","Invited")))+
+      geom_hline(yintercept = 10*expect, color = "black",linetype="dashed")+ 
+      annotate("text", x=as.Date("2022-04-01"), y=expect*10.5, label="TO6 Expected",color="purple")+
+      scale_y_continuous(name="# Invitations", limits=c(0,max_y0),breaks=break_y0,labels = scales::label_comma(),sec.axis = sec_axis( ~ . /10 , name = "# of Participants with Completed \nBaseline Study Activities",breaks=break_y0/10,labels = scales::label_comma())) +
+  coord_cartesian(ylim =c(0,max_y0)) +
+      scale_x_date(name="Date",limit=as.Date(c("2022-01-01",currentDate)),date_labels = "%y-%m-%d", date_breaks = "1 month",expand=c(0,0))  +
+      ggtitle(paste("Cumulative Number of Participants by Date and Baseline Study Activities \nvs Invitations through", currentDate,s ,sep=" "))+
+      theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+             axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90, hjust=0.5),
+             plot.title = element_text(face="bold", size=16),
+             # Remove panel border
+             panel.border = element_blank(),  
+             # Remove panel grid lines
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             # Remove panel background
+             panel.background = element_blank(),
+             # Add axis line
+             axis.line = element_line(colour = "grey") ,
+             ##put the legend in the plot
+             legend.position = "bottom"
+      ) 
+    print(combo.plot)
+    plot.combo[[i]] <- combo.plot
+  }
+
+ 
+   
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+#Invites_all.plot
+#Fig_all.plot
+Fig1_combo.plot
+```
+
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.1'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#HP
+# print(invite.list[[1]])
+# print(plot.site[[1]])
+ print(plot.combo[[1]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.2'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ # print(invite.list[[2]])
+ # print(plot.site[[2]])
+ print(plot.combo[[2]])
+#HFHS
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.3'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ # print(invite.list[[3]])
+ # print(plot.site[[3]])
+ print(plot.combo[[3]])
+#MFH
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.4'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ # print(invite.list[[4]])
+ # print(plot.site[[4]])
+ print(plot.combo[[4]])
+
+#SF
+```
+
+```{r,eval=TRUE,echo=FALSE,fig.cap='Figure 1.5'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#UOC
+ # print(invite.list[[5]])
+ # print(plot.site[[5]])
+ print(plot.combo[[5]])
+
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.6'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#KPCO
+ # print(invite.list[[6]])
+ # print(plot.site[[6]])
+ print(plot.combo[[6]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.7'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#KPGA
+ # print(invite.list[[7]])
+ # print(plot.site[[7]])
+ print(plot.combo[[7]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.8'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+#KPHI
+ # print(invite.list[[8]])
+ # print(plot.site[[8]])
+ print(plot.combo[[8]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 1.9'}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #KPNW
+ # print(invite.list[[9]])
+ # print(plot.site[[9]])
+ print(plot.combo[[9]])
+```
