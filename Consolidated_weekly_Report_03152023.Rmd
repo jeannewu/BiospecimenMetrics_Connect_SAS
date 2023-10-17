@@ -33,7 +33,12 @@ This report contains data as of `r format(Sys.Date(), '%d %B, %Y')`. Atypical re
 
 ```{r setup, include=FALSE,eval=TRUE,echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+##to update with Github: usethis::use_github()
+#> ✓ Creating GitHub repository 'jennybc/myrepo'
+#> ✓ Setting remote 'origin' to 'https://github.com/jennybc/myrepo.git'
+#> ✓ Pushing 'main' branch to GitHub and setting 'origin/main' as upstream branch
+#> ✓ Opening URL 'https://github.com/jennybc/myrepo'
+#> 
 #knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 # The working data applied is the recruitment data 'nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP' synchronouslly updated with the ongoing study, without any inactive participants, or duplicates found in the active recruitments.
 # 
@@ -63,7 +68,7 @@ library(tidyr)
 library(tinytex) #for pdf
 library(rmarkdown) ###for the output tables into other files: pdf, rtf, etc.
 library(janitor) #to get the summary sum
-library(finalfit) #https://cran.r-project.org/web/packages/finalfit/vignettes/export.html t
+library(finalfit) #https://cran.r-project.org/web/packages/finalfit/vignettes/export.html
 library(expss) ###to add labels
 library(epiDisplay) ##recommended applied here crosstable, tab1
 #library(summarytools) ##recommended not applied in this R code
@@ -74,11 +79,11 @@ library(gtsummary)
 library(kableExtra)
 #library(patchwork)
 library(rio)
+library(scales)
 #library(jsonlite)
 ```
 
 ```{r, include=FALSE,eval=TRUE,echo=FALSE}
-#to download the recruitment data and corresponding Connect master DD
 options(knitr.table.format = "latex")
 currentDate <- Sys.Date()
 
@@ -92,6 +97,8 @@ dd$`Variable Label` <- ifelse(is.na(dd$`Variable Label`), dd$`Variable Name`, dd
 
 #dd1 <- dd[!duplicated(dd[,c("CID","Variable Label")]),]
 length(unique(dd$CID))
+#dd1 <- dd[!duplicated(dd[,c("CID","Variable Label")]),]
+length(unique(dd$CID))
 
 #the master dd with more info. on the formats (levels)
 urlfile<- "https://raw.githubusercontent.com/episphere/conceptGithubActions/master/csv/masterFile.csv" ###to grab the updated dd from github
@@ -102,14 +109,14 @@ y <- read.csv(urlfile)
 #Select a pre-authorised account or enter '0' to obtain a new token.
 #Press Esc/Ctrl + C to cancel.
 
-  2 #: wuj12@nih.gov
+  2 
   
   project <- "nih-nci-dceg-connect-prod-6d04"
   billing <- "nih-nci-dceg-connect-prod-6d04" ##project and billing should be consistent
 
 recr_var <- bq_project_query(project, query="SELECT * FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS WHERE table_name='participants_JP'")
 recrvar <- bigrquery::bq_table_download(recr_var,bigint = "integer64")
-recrvar_d <- recrvar[grepl("d_",recrvar$column_name),]
+recrvar_d <- recrvar[grepl("d_|D_",recrvar$column_name),]
 recrvar$last.CID <- ifelse(grepl("D_", recrvar$field_path), substring(sapply(strsplit(recrvar$field_path,"D_"),tail,1),1,9),
                             ifelse(grepl("d_", recrvar$field_path), substring(sapply(strsplit(recrvar$field_path,"d_"),tail,1),1,9), NA))
 
@@ -145,6 +152,9 @@ refwd_date1 <- c("d_657475009","d_982105411","d_390198398","d_808663245","d_2623
 var.list <- recrvar$column_name[which(recrvar$column_name %in% unique(c(act_ls,awareness, bio.col,ca.hist.var,clc.bldtm,clc.urinetm,incentive.vars,modules,optout_reasons,
                      recruit.times,ref.wd,refwd_date1,refwd_reasons,refwd_type1,refwd.main1,rfact_ls,"d_512820379","d_821247024", "d_230663853","d_919254129","d_699625233","state_d_684926335","state_d_849518448","state_d_119643471", "state_d_706256705", "state_d_435027713","state_d_934298480","d_827220437","d_914594314","d_471593703", "state_d_444699761", "state_d_953614051", "state_d_188797763", "state_d_158291096", "d_311580100","d_914639140", "d_878865966","d_167958071","d_684635302", "d_100767870", "d_153713899", "d_613641698", "d_715390138", "d_912301837", "state_d_793822265", "d_949302066", "d_536735468", "d_663265240", "d_976570371", "state_d_667474224", "d_995036844")))]
 
+#"state_state_d_706283025_d_347614743" "state_state_d_706283025_d_517101990" are null duplicated variables would be removed from the var.list
+var.list <- var.list[which(var.list %nin% c("state_state_d_706283025_d_347614743", "state_state_d_706283025_d_517101990"))]
+
 nvar = floor((length(var.list))/6) ##to define the number of variables in each sql extract from GCP
 nvar
 
@@ -152,31 +162,31 @@ nvar
    start = seq(1,length(var.list),nvar)
    end <- length(var.list)
 
-   # recrbq <- list()
-   # 
-   # for (i in (1:length(start)))  {
-   #   select <- paste(var.list[start[i]:(min(start[i]+nvar-1,end))],collapse=",")
-   #   tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT token,Connect_ID,", select,"FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' and (d_512820379 !=  '486306141' or d_821247024 != '922622075') \")",sep=" ")))
-   # 
-   #   recrbq[[i]] <- bq_table_download(tmp, bigint="integer64",n_max = Inf, page_size = 20)
-   # }
+recrbq <- list()
 
-    # recr_noinact_wl <- recrbq %>% reduce(inner_join, by = c("token","Connect_ID"))
-  # Check that it doesn't match any non-number
+for (i in (1:length(start)))  {
+  select <- paste(var.list[start[i]:(min(start[i]+nvar-1,end))],collapse=",")
+  tmp <- eval(parse(text=paste("bq_project_query(project, query=\"SELECT token,Connect_ID,", select,"FROM  `nih-nci-dceg-connect-prod-6d04.FlatConnect.participants_JP` Where d_512820379 != '180583933' and (d_512820379 !=  '486306141' or d_821247024 != '922622075') \")",sep=" ")))
+
+  recrbq[[i]] <- bq_table_download(tmp, bigint="integer64",n_max = Inf, page_size = 10000)
+}
+
+ recr_noinact_wl <- recrbq %>% reduce(inner_join, by = c("token","Connect_ID"))
+#   # # # Check that it doesn't match any non-number
   numbers_only <- function(x) !grepl("\\D", x)
- 
- ###convert the numeric
-   # recr_noinact_wl1 <- recr_noinact_wl
-   # cnames <- names(recr_noinact_wl)
-# #  to check variables in recr_noinact_wl1
-  # for (i in 1: length(cnames)){
-  #    varname <- cnames[i]
-  #    var<-pull(recr_noinact_wl1,varname)
-  #    recr_noinact_wl1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
-  #  }
-  # 
-  #    saveRDS(recr_noinact_wl1,paste("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit",currentDate,".rds", sep=""))
-     recr_noinact_wl1 <- readRDS("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit2023-07-31.rds" )
+
+#  ###convert the numeric
+recr_noinact_wl1 <- recr_noinact_wl
+cnames <- names(recr_noinact_wl)
+# # # # #  to check variables in recr_noinact_wl1
+for (i in 1: length(cnames)){
+   varname <- cnames[i]
+   var<-pull(recr_noinact_wl1,varname)
+   recr_noinact_wl1[,cnames[i]] <- ifelse(numbers_only(var), as.numeric(as.character(var)), var)
+ }
+
+  saveRDS(recr_noinact_wl1,paste("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit",currentDate,".rds", sep=""))
+      recr_noinact_wl1 <- readRDS(paste("~/Documents/CONNECT_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/data/recruit",currentDate,".rds", sep="") )
 
 data <- recr_noinact_wl1[which(recr_noinact_wl1$d_512820379 != 180583933 | recr_noinact_wl1$d_821247024 == 197316935),] #0 removeal
 
@@ -213,6 +223,8 @@ data <- data %>% mutate(race = case_when(state_d_684926335 == 635279662 | state_
                                                     state_d_667474224 == 682916147 ~ "Post-screening appointment",
                                                     state_d_667474224 == 153365143 ~ "Technology adapters",
                                                     state_d_667474224 == 663706936 ~ "Low-income/health professional shortage areas",
+                                                    state_d_667474224 == 208952854 ~ "Research Registry",
+                                                    state_d_667474224 == 296312382 ~ "Pop up",
                                                     state_d_667474224 == 181769837 ~ "Other",
                                                     state_d_667474224 == 398561594 ~ "None of these apply",
                                                     is.na(state_d_667474224)  ~ "NA/Unknown"),
@@ -948,7 +960,6 @@ Srvbiospe.site[[i]] <- site %>%
 
 }
 
-
 #Table 34 Refusal and withdrawals
 recruitsites <- as.data.frame(tab1(data[which(data$d_821247024 == 197316935),]$site)[[2]])
 recruitsites$site <- ifelse(grepl("Total",rownames(recruitsites)), "Total" , trimws(rownames(recruitsites)))
@@ -1127,8 +1138,10 @@ colnames(ref_wd_reasons_all1)[which(colnames(ref_wd_reasons_all1)=="Total.Reason
 ###Incentive table: Table 26 Baseline Incentive Eligibility for Verified Participants
 
 incentive.CIDs <- sapply(strsplit(as.character(colnames(data)[grepl("d_130371375_d_266600170",colnames(data))]),"d_"),"[", 4)
-incentive.vars <- dd[which(grepl(paste(incentive.CIDs,collapse = "|"),dd$CID)),]
-incentive.vars$var.names <- paste("d_130371375_d_266600170_d",incentive.vars$CID,sep="_") 
+#incentive.vars <- dd[which(grepl(paste(incentive.CIDs,collapse = "|"),dd$CID)),] ##the aggregate dd has not been updated with some new variables
+#incentive.vars$var.names <- paste("d_130371375_d_266600170_d",incentive.vars$CID,sep="_") 
+incentive.vars <- y[which(grepl(paste(incentive.CIDs,collapse = "|"),y$conceptId.3)),c("conceptId.3","Variable.Label", "Variable.Name")]
+incentive.vars$var.names <- paste("d_130371375_d_266600170_d",incentive.vars$conceptId.3,sep="_") 
 
 incentive <- data %>% select(Connect_ID,site,d_821247024,d_827220437,incentive.vars$var.names) %>%
     mutate(Incentive_Eligible = case_when(d_130371375_d_266600170_d_731498909 == 353358909 ~ "Incentive Eligible",
@@ -1148,6 +1161,7 @@ incentive$Tm_issued2eligible <- ifelse(incentive$d_130371375_d_266600170_d_64893
 
 summary(incentive$Tm_issued2eligible)
 incentive$Tm_issued2declined <- ifelse(incentive$d_130371375_d_266600170_d_648228701 & incentive$d_130371375_d_266600170_d_731498909==353358909, difftime(incentive$declined_time,incentive$eligible_time,units="day"),NA)
+
 
   incentive.eligible <- incentive[which(incentive$d_821247024==197316935),] %>%  select(site,Incentive_Eligible)%>% 
     tbl_cross(col=Incentive_Eligible,
@@ -1195,6 +1209,10 @@ incentive$Tm_issued2eligible <- ifelse(incentive$d_130371375_d_266600170_d_64893
 
 incentive$Tm_issued2declined <- ifelse(incentive$d_130371375_d_266600170_d_648228701 & incentive$d_130371375_d_266600170_d_731498909==353358909, difftime(incentive$declined_time,incentive$eligible_time,units="day"),NA)
 
+#Aug. 22, Amelia's request due to the availibility of the incentive issued data from UC, Amelia asked to update the weekly report via https://github.com/Analyticsphere/metricsReportsRequests/issues/58
+# a. the Table 37 by removing the footnot,
+# b. the Table 38 for NORC;
+# c. to add the table 39 for UC
 
 table38_Tm_IncentIssued <- incentive[complete.cases(incentive[,c("d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_297462035")]),] %>% dplyr::filter(d_130371375_d_266600170_d_731498909 == 353358909 & d_130371375_d_266600170_d_648936790 == 353358909) %>% mutate(time=Tm_issued2eligible) %>% group_by(site) %>% dplyr::summarize('Incentives Issued'=n(),
                    min = min(time),
@@ -1206,7 +1224,7 @@ table38_Tm_IncentIssued <- incentive[complete.cases(incentive[,c("d_130371375_d_
                    pct95 = quantile(time, 0.95),                   
                    max = max(time))
 
-table38_Tm_IncentIssued.all <- incentive[complete.cases(incentive[,c("d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_297462035")]),] %>% dplyr::filter(d_130371375_d_266600170_d_731498909 == 353358909 & d_130371375_d_266600170_d_648936790 == 353358909) %>% mutate(time=Tm_issued2eligible) %>%  dplyr::summarize('Incentives Issued'=n(),
+table38_Tm_IncentIssued.NORCall <- incentive[complete.cases(incentive[,c("d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_297462035")]),] %>% dplyr::filter(d_130371375_d_266600170_d_731498909 == 353358909 & d_130371375_d_266600170_d_648936790 == 353358909 & d_827220437 != 809703864) %>% mutate(time=Tm_issued2eligible) %>%  dplyr::summarize('Incentives Issued'=n(),
                    min = min(time),
                    q1 = quantile(time, 0.25),
                    median = median(time),
@@ -1215,10 +1233,14 @@ table38_Tm_IncentIssued.all <- incentive[complete.cases(incentive[,c("d_13037137
                    pct90 = quantile(time, 0.90),
                    pct95 = quantile(time, 0.95),
                    max = max(time))
-table38_Tm_IncentIssued.all$site <- "Total"
+table38_Tm_IncentIssued.NORCall$site <- "Total"
 
-table38_Tm_IncentIssued <- rbind(table38_Tm_IncentIssued,table38_Tm_IncentIssued.all)
+table38_Tm_IncentIssued.NORC <- rbind(table38_Tm_IncentIssued[which(table38_Tm_IncentIssued$site !="University of Chicago Medicine"),],table38_Tm_IncentIssued.NORCall)
 
+table39_Tm_IncentIssued.UC <- table38_Tm_IncentIssued[which(table38_Tm_IncentIssued$site =="University of Chicago Medicine"),]
+#UC_incentive <- filter(incentive,site=="University of Chicago Medicine")
+# UC_incentive[which(as.numeric(UC_incentive$Tm_issued2eligible) < -1), c("Connect_ID","eligible_time","issued_time","time","Tm_issued2eligible")] ##Aug. 21,2023
+ 
 ##Table39 (weekly table 5 Previous Cancer d_452166062 title should be updated to Previous Cancer Reported in User Profile among participants submitted profile
 #dd[grepl("699625233",dd$CID),]
 #         CID         Variable Label         Variable Name
@@ -1227,6 +1249,23 @@ table38_Tm_IncentIssued <- rbind(table38_Tm_IncentIssued,table38_Tm_IncentIssued
 #            104430631 353358909
 #  104430631         0         0
 #  353358909      5171        46
+
+###Amelia' request: Time from Incentive Eligible to Incentive Issued by Chicago in Categorical Days
+# Issued
+# 10+ days before incentive-eligible
+# 1-9 days before 
+# <1 day before
+# < 1 day after incentive-eligible
+# 1-9 days after 
+# 10+ after 
+incentive_uc <- filter(incentive, d_827220437 == 809703864) %>% mutate(Day_Eligible2Issued=ifelse(Tm_issued2eligible <= -10, "10+ days before incentive-eligible",ifelse(Tm_issued2eligible <= -1 & Tm_issued2eligible >  -10, "1-9 days before",ifelse(Tm_issued2eligible > -1 & Tm_issued2eligible <0, "< 1 day before",ifelse(Tm_issued2eligible < 1 & Tm_issued2eligible >= 0, "< 1 day after incentive-eligible",ifelse(Tm_issued2eligible <10 & Tm_issued2eligible >= 1, "1-9 days after", "10+ days after"))))))
+
+incentive_uc$Day_Eligible2Issued <- factor(incentive_uc$Day_Eligible2Issued,levels=c("10+ days before incentive-eligible","1-9 days before","< 1 day before","< 1 day after incentive-eligible","1-9 days after","10+ days after"))
+
+Table39_UC <- filter(incentive_uc,d_130371375_d_266600170_d_731498909 == 353358909 & d_130371375_d_266600170_d_648936790 == 353358909) %>% group_by(Day_Eligible2Issued) %>% tally() %>% adorn_totals() %>%
+  mutate("N (%)"= paste0(format(n,big.mark=","), " (",round(100*n/max(n),2), " %)"))
+
+
 col_pct <- function(x,y) {paste0(format(x,big.mark=","), " (",round(100*x/y,2), " %)")}
 
 dt_profile <- data %>% filter(d_699625233==353358909) 
@@ -1269,7 +1308,7 @@ ca.hist
 # 7: 650597106                   Cancer Year    RcrtUP_CancerYr_v1r0
 
 ca.var.hist <- colnames(data)[grepl("266952173|452166062|494982282|650597106|547895941",colnames(data))]
-ca_hist <- data %>% filter(.,d_699625233==353358909 & d_452166062 == 353358909 ) %>% select(token,Connect_ID,d_821247024, d_512820379, site, age,sex,d_430551721,d_471593703, race,d_699625233,d_452166062,all_of(ca.var.hist)) %>%mutate(`Verification status`= case_when(d_821247024 == 875007964 ~ "Not yet verified",
+ca_hist <- data %>% filter(d_699625233==353358909 & d_452166062 == 353358909 ) %>% select(token,Connect_ID,d_821247024, d_512820379, site, age,sex,d_430551721,d_471593703, race,d_699625233,d_452166062,all_of(ca.var.hist)) %>%mutate(`Verification status`= case_when(d_821247024 == 875007964 ~ "Not yet verified",
                                              d_821247024 == 197316935  ~ "Verified",
                                              d_821247024 ==  219863910 ~ "Cannot be verified",
                                              d_821247024 ==  922622075 ~ "Duplicate",
@@ -1293,12 +1332,12 @@ ca_hist <- data %>% filter(.,d_699625233==353358909 & d_452166062 == 353358909 )
 # RcrtV_UpdateRecType_v1r0 (793822265) = 2 = Passive to Active (854903954)
 active_frpass <-  dplyr::filter(data,d_512820379==486306141 & d_821247024==197316935) %>% 
   mutate(passive_active=ifelse(state_d_793822265 !=854903954| is.na(state_d_793822265),104430631,353358909)) %>% select(site, d_512820379, d_821247024,passive_active,state_d_793822265) 
-table40_actpass <- pct_tb(active_frpass$site,active_frpass$passive_active)                                  
-table40_actpass$`Total Active Verified Participants` <- table40_actpass$n_104430631+table40_actpass$n_353358909
-colnames(table40_actpass)[which(colnames(table40_actpass)=="n_pct_353358909")] <- "Passive to Active"
-table40_actpass$Site <- rownames(table40_actpass)
+table41_actpass <- pct_tb(active_frpass$site,active_frpass$passive_active)                                  
+table41_actpass$`Total Active Verified Participants` <- table41_actpass$n_104430631+table41_actpass$n_353358909
+colnames(table41_actpass)[which(colnames(table41_actpass)=="n_pct_353358909")] <- "Passive to Active"
+table41_actpass$Site <- rownames(table41_actpass)
 
-#Table 41 (weekly table 15.) Sign-In Mechanism Used for First Log On
+#Table 42 (weekly table 15.) Sign-In Mechanism Used for First Log On
 data$logon <- ifelse(data$d_995036844 == "password", "Email", ifelse(data$d_995036844 == "phone", "Phone",NA))
 data$logon <- factor(data$logon,levels=c("Email","Phone"))   
 
@@ -1320,7 +1359,7 @@ signin_methods1 <- signin_methods1 %>%
   #italicize_levels() %>% 
   modify_header(
                 stat_0="Total Recruits who Have \nSigned-In and Consented") %>%
-  modify_caption("Table 41. Sign-In Mechanism for First Log on") %>%
+  modify_caption("Table 42. Sign-In Mechanism for First Log on") %>%
   as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
 
 #Table 16 (weekly). How Recruit Heard About Study d_230663853
@@ -1395,28 +1434,28 @@ awares1_transpose$CID <- ifelse(grepl("n_pct_353358909",rownames(awares1_transpo
 #awares1_transpose$awares_ids <- ifelse(grepl("n_pct_353358909",rownames(awares1_transpose)), gsub(" n_pct_353358909|d_142654897_d_","", rownames(awares1_transpose)), "Total")
 
 ##column percent within each site
-Table42_awaresreasons <- merge(dd[,c("CID","Variable Label")],awares1_transpose,by.x="CID",by.y="CID",all.y=TRUE)
+Table43_awaresreasons <- merge(dd[,c("CID","Variable Label")],awares1_transpose,by.x="CID",by.y="CID",all.y=TRUE)
 
-Table42_awaresreasons$Awareness <- ifelse(is.na(Table42_awaresreasons$CID),"Total SignedIn",ifelse(Table42_awaresreasons$CID == 0, "No Response Sent",Table42_awaresreasons$`Variable Label`))
-Table42_awaresreasons <- Table42_awaresreasons[order(Table42_awaresreasons$CID),]
+Table43_awaresreasons$Awareness <- ifelse(is.na(Table43_awaresreasons$CID),"Total SignedIn",ifelse(Table43_awaresreasons$CID == 0, "No Response Sent",Table43_awaresreasons$`Variable Label`))
+Table43_awaresreasons <- Table43_awaresreasons[order(Table43_awaresreasons$CID),]
 
 ###row percent of each reason
 awares2_transpose$CID <- ifelse(grepl("col_npct",rownames(awares2_transpose)), trimws(gsub("col_npct|d_142654897_d_","", rownames(awares2_transpose))), NA)
 
 #awares2_transpose$awares_ids <- ifelse(grepl("n_pct_353358909",rownames(awares2_transpose)), gsub(" n_pct_353358909|d_142654897_d_","", rownames(awares2_transpose)), "Total")
 
-Table42b_awaresreasons <- merge(dd[,c("CID","Variable Label")],awares2_transpose,by.x="CID",by.y="CID",all.y=TRUE)
-Table42b_awaresreasons$Awareness <- ifelse(is.na(Table42b_awaresreasons$CID),"Total Recruits",ifelse(Table42b_awaresreasons$CID == 0, "No Response Sent",Table42b_awaresreasons$`Variable Label`))
-Table42b_awaresreasons <- Table42b_awaresreasons[order(Table42b_awaresreasons$CID),]
+Table43b_awaresreasons <- merge(dd[,c("CID","Variable Label")],awares2_transpose,by.x="CID",by.y="CID",all.y=TRUE)
+Table43b_awaresreasons$Awareness <- ifelse(is.na(Table43b_awaresreasons$CID),"Total Recruits",ifelse(Table43b_awaresreasons$CID == 0, "No Response Sent",Table43b_awaresreasons$`Variable Label`))
+Table43b_awaresreasons <- Table43b_awaresreasons[order(Table43b_awaresreasons$CID),]
 
 
-data$active_camptype <- factor(data$active_camptype, levels=c("Aging out of study","Demographic Group", "Geographic group","Non-screening appointment", "None of these apply", "Random","Screening appointment", "Post-screening appointment", "Technology adapters",  "Low-income/health professional shortage areas", "Other", "NA/Unknown"))
+data$active_camptype <- factor(data$active_camptype, levels=c("Aging out of study","Demographic Group", "Geographic group","Non-screening appointment", "None of these apply", "Random","Screening appointment", "Post-screening appointment", "Technology adapters",  "Low-income/health professional shortage areas", "Research Registry", "Pop up","Other", "NA/Unknown"))
 
 
-#Table 43(Weekly table 8). Total Number of Active Recruits in Campaign
+#Table 44(Weekly table 8). Total Number of Active Recruits in Campaign
 data$active_camptype <- droplevels(data$active_camptype)
-data$active_camptype <- factor(data$active_camptype, levels=c("Aging out of study","Demographic Group", "Geographic group","Non-screening appointment", "Random","Screening appointment", "Other", "None of these apply"))
-table43_Totalactivecamp <-  data %>% filter(d_512820379 == 486306141 & d_827220437 >0) %>% 
+data$active_camptype <- factor(data$active_camptype, levels=c("Aging out of study","Demographic Group", "Geographic group","Non-screening appointment", "Random","Screening appointment", "Research Registry", "Pop up", "Other", "None of these apply"))
+table44_Totalactivecamp <-  data %>% filter(d_512820379 == 486306141 & d_827220437 >0) %>% 
   mutate(active_camptype = droplevels(active_camptype)) %>% 
   select(site, active_camptype) %>% tbl_cross( row=site,
     col = active_camptype,
@@ -1426,10 +1465,10 @@ table43_Totalactivecamp <-  data %>% filter(d_512820379 == 486306141 & d_8272204
     missing = "ifany",
     margin_text="Total Active Recruits") 
 
-table43_Totalactivecamp[["table_body"]]$stat_0 <- sapply(strsplit(table43_Totalactivecamp[["table_body"]]$stat_0," "),"[",1) 
+table44_Totalactivecamp[["table_body"]]$stat_0 <- sapply(strsplit(table44_Totalactivecamp[["table_body"]]$stat_0," "),"[",1) 
 
     
-table43_Totalactivecamp <- table43_Totalactivecamp %>%
+table44_Totalactivecamp <- table44_Totalactivecamp %>%
   #bold_labels() %>%
   #italicize_levels() %>% 
   modify_header( 
@@ -1439,14 +1478,16 @@ table43_Totalactivecamp <- table43_Totalactivecamp %>%
     'stat_4' = 'Non-screening Appointment',
     'stat_5' = 'Random',  
     'stat_6' = 'Screening Appointment',
-    'stat_7' = 'Other',
-    'stat_8' = 'None of These Apply',
-    'stat_9' = 'NA/missing') %>%
-  modify_caption("Table 43. Total Number of Active Recruits in Campaign") %>%
+    'stat_7' = 'Research Registry',
+    'stat_8' = 'Pop up',
+    'stat_9' = 'Other',
+    'stat_10' = 'None of These Apply',
+    'stat_11' = 'NA/missing') %>%
+  modify_caption("Table 44. Total Number of Active Recruits in Campaign") %>%
   modify_footnote(all_stat_cols() ~ "Frequency (%) of Total Active Recruits") %>%
   as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
 
-table43_Totalactivecamp
+table44_Totalactivecamp
 data[which(is.na(data$active_camptype) & data$d_512820379== 486306141), c("site","Connect_ID", "d_821247024","state_d_667474224","active_camptype")]
 # # A tibble: 3 × 5 #Jun. 20-26,2023
 #   site           Connect_ID d_821247024 state_d_667474224 active_camptype
@@ -1456,7 +1497,7 @@ data[which(is.na(data$active_camptype) & data$d_512820379== 486306141), c("site"
 # 3 Sanford Health 8873963949   197316935                NA NA  
 data[which(data$active_camptype =="Random" & data$d_512820379== 486306141), c("site","Connect_ID", "d_821247024","state_d_667474224","active_camptype")]
 
-#Table 44 (Weekly Table 9). Number ratio of the success campaign verified among recruits
+#Table 45 (Weekly Table 9). Number ratio of the success campaign verified among recruits
  ##for successul active campaign recrruits as the active verified by each campaign type 
 #data$active_camptype <- factor(data$active_camptype,levels=c("Random","Screening appointment","Non-screening appointment","Demographic Group","Aging out of study","Geographic group","Post-screening appointment","Technology adapters","Low-income/health professional shortage areas","Other","None of these apply","NA/Unknown"))
 
@@ -1493,9 +1534,9 @@ for(site in unique(data[which(data$d_827220437>0),]$site)){
   
 }
   total.veri_pct <- pct_tb(data[which(data$d_512820379==486306141),]$active_camptype,     data[which(data$d_512820379==486306141),]$Rcrt_Verified_v1r0)
-       act.veri.camp <- as.data.frame(t(c(format(total.veri_pct$n_353358909[1:8],big.mark=","),paste0(round(100*total.veri_pct$pct_353358909[1:8],2)," %"))))
-       colnames(act.veri.camp)[1:8] <- rownames(total.veri_pct)[1:8]
-       colnames(act.veri.camp)[9:16] <- paste0(rownames(total.veri_pct)[1:8],"_perc")
+       act.veri.camp <- as.data.frame(t(c(format(total.veri_pct$n_353358909[1:10],big.mark=","),paste0(round(100*total.veri_pct$pct_353358909[1:10],2)," %"))))
+       colnames(act.veri.camp)[1:10] <- rownames(total.veri_pct)[1:10]
+       colnames(act.veri.camp)[11:20] <- paste0(rownames(total.veri_pct)[1:10],"_perc")
        act.veri.camp$Site <- "Total Active Recruits"
        act.veri.camp$Total <- format(sum(total.veri_pct$n_104430631,total.veri_pct$n_353358909)/2,big.mark=",")
        campaign.combo <- rbind(format(campaign.site,big.mark=","),act.veri.camp)
@@ -1503,27 +1544,28 @@ for(site in unique(data[which(data$d_827220437>0),]$site)){
 new_order <- sort(colnames(campaign.combo))
 campaign.combo <- campaign.combo[,new_order]
 campaign.combo$order <- seq(rownames(campaign.combo))
-colnames(campaign.combo)[18] <- "Total Active Recruits"
+colnames(campaign.combo)[ncol(campaign.combo)-1] <- "Total Active Recruits"
 
 
 
 #Mar.10, as Michelle reminded "those recruits with both Opt_out flag=Yes and consent=Yes should be excluded from the opt-out tables Table 6. and Table 7
 ##May 15, as Amelia requested to add a new set of completion of surveys and biospecimen colletions after the Table 14-23, all the tables afterwards are reordered
-#Table 45 and 46 (equally weekly table 6 and 7): total number of opt-outs by site
+#Table 46 and 47 (equally weekly table 6 and 7): total number of opt-outs by site
 
 #Table 8. Pre-Consent Opt-Out Reasons Among Those that Opted Out  #d_706283025
 #among RcrtSI_OptOut_v1r0 (158291096)= 353358909 AND RcrtSI_RecruitType_v1r0 = 486306141
 optout_reasons <- colnames(data)[grepl("706283025",colnames(data))]  #35 #36 on 05/30/2023
-optout_reasons <- optout_reasons[-16] #to remove "d_706283025_d_415693436" character outputs #34 #35
-optout_reasons <- optout_reasons[!grepl("415693436",optout_reasons)]
+#optout_reasons <- optout_reasons[-16] #to remove "d_706283025_d_415693436" character outputs #34 #35
+#optout_reasons <- optout_reasons[!grepl("415693436",optout_reasons)]
 
 
-optout <- data[which(data$d_512820379==486306141 & data$state_d_158291096==353358909 & data$d_919254129 %in% c(104430631,NA)),c("Connect_ID","token","d_821247024","site","state_d_158291096",optout_reasons)] #4374 variable=41
+optout <- data[which(data$d_512820379==486306141 & data$state_d_158291096==353358909 & data$d_919254129 %in% c(104430631,NA)),c("Connect_ID","token","d_821247024","site","state_d_158291096",optout_reasons)]  #4374 variable=41
 empty_columns <- colSums(is.na(optout) |optout == "") == nrow(optout)
 
-optout1 <- optout[!empty_columns] #32 columns #34 columns(02/21/2023) #38 columns(05/30/2023)
+optout1 <- optout[!empty_columns] #32 columns #34 columns(02/21/2023) #38 columns(05/30/2023) ##to add the character variable state_d_706283025_d_415693436
 #optout1$site <- droplevels(optout1$site)
-optout1 <- optout1[order(optout1$site),]
+optout1 <- optout1[order(optout1$site),] %>% 
+  mutate(state_d_706283025_d_415693436 = ifelse(!is.na(state_d_706283025_d_415693436),353358909,104430631))
 
 optout1_sites <- data %>% filter(.,d_512820379==486306141 & d_827220437>0 & data$d_919254129 %in% c(104430631,NA)) %>% select(site, state_d_158291096)
 
@@ -1539,7 +1581,7 @@ optout1.sites <- optout1.sites %>%  mutate(site = trimws(rownames(optout1.sites)
 optout1.sites[,c(9,4,8,7)]
 #site = gsub("\\.","\\ \\", gsub("X\\..","", rownames(optout1_sites))) 
 #optout_reason1 <- colnames(optout1.sites)[c(6:17,19:32)]
-optout_reason1 <- colnames(optout1)[c(5:38)]
+optout_reason1 <- colnames(optout1)[c(5:39)]
 #optout_reason1 <- colnames(optout1)[c(6:17,19:32)]
 opt_id <- list()
 for (i in 1:length(optout_reason1)){
@@ -1568,17 +1610,17 @@ grab <- y %>% filter(grepl(paste(optouts1_transpose$CID,collapse = "|"),y$concep
   select(conceptId.3,`Variable.Label`) %>% dplyr::rename(CID=conceptId.3)
 
 
-Table47_optreasons <- merge(grab,optouts1_transpose,by.x="CID",by.y="CID",all.y=TRUE)
-colnames(Table47_optreasons)[c(2,12)] <- c("Opt-Out Reasons","Total Opt-Outs")
+Table48_optreasons <- merge(grab,optouts1_transpose,by.x="CID",by.y="CID",all.y=TRUE)
+colnames(Table48_optreasons)[c(2,12)] <- c("Opt-Out Reasons","Total Opt-Outs")
 
-Table47_optreasons$`Total Opt-Outs` <- sapply(strsplit(Table47_optreasons$`Total Opt-Outs`, " "), "[[",1)
+Table48_optreasons$`Total Opt-Outs` <- sapply(strsplit(Table48_optreasons$`Total Opt-Outs`, " "), "[[",1)
 
-Table47_optreasons[nrow(Table47_optreasons),2] <- "Total Opt-Outs"
+Table48_optreasons[nrow(Table48_optreasons),2] <- "Total Opt-Outs"
 #optout_reason1 <- colnames(optout1.sites)[c(6:17,19:32)]
 
 ##to remove the "Signed-In and Consent submittd" (unusual one, mistaken ones for QC)
  data$CSSigned <- factor(data$CSSigned, levels=c("Never Signed-In","Signed-In, no Consent"))
-    Table46_precst_act1 <- data %>% dplyr::filter(d_512820379==486306141& state_d_158291096 == 353358909 & d_827220437>0) %>% 
+    Table47_precst_act1 <- data %>% dplyr::filter(d_512820379==486306141& state_d_158291096 == 353358909 & d_827220437>0) %>% 
       dplyr:: select(site, CSSigned) %>% tbl_cross(
         row = site,
         col = CSSigned,
@@ -1590,19 +1632,19 @@ Table47_optreasons[nrow(Table47_optreasons),2] <- "Total Opt-Outs"
         margin_text = "Total Pre-consent Opt-Outs") 
  
   
-    Table46_precst_act1[["table_body"]]$stat_0 <- sapply(strsplit(Table46_precst_act1[["table_body"]]$stat_0," "),"[",1) 
+    Table47_precst_act1[["table_body"]]$stat_0 <- sapply(strsplit(Table47_precst_act1[["table_body"]]$stat_0," "),"[",1) 
 
     
- Table46_precst_act1 <- Table46_precst_act1 %>%
+ Table47_precst_act1 <- Table47_precst_act1 %>%
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header(stat_0="Total Pre-consent \nOpt-Outs",
                     stat_1 = "Never \n Signed-In",
                     stat_2 = "Signed-In,\n No Consent") %>%
-      modify_caption("Table 46.  Timing of Pre-Consent Opt-Outs Among Active Recruits") %>%
+      modify_caption("Table 47.  Timing of Pre-Consent Opt-Outs Among Active Recruits") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
 
- Table46_precst_act1 <- gsub("NA","0", Table46_precst_act1 )  
+ Table47_precst_act1 <- gsub("NA","0", Table47_precst_act1 )  
  
 #Table 4. Current Status in Workflow Total
  data$recrt_steps_v1r0 <-factor(data$recrt_steps_v1r0,levels=c("Never Signed-In","Signed-in, No Consent","Consented, No Profile", "Profile, Verification Incomplete","Verification Complete"))
@@ -1625,7 +1667,7 @@ Table47_optreasons[nrow(Table47_optreasons),2] <- "Total Opt-Outs"
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header() %>%
-      modify_caption("Table 48. Current Status in Workflow All Recruits") %>%
+      modify_caption("Table 49. Current Status in Workflow All Recruits") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
   
    work_flow_a  <- gsub("NA","0", work_flow_a )  
@@ -1646,7 +1688,7 @@ Table47_optreasons[nrow(Table47_optreasons),2] <- "Total Opt-Outs"
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header() %>%
-      modify_caption("Table 49. Current Status in Workflow Active Recruits Only") %>%
+      modify_caption("Table 50. Current Status in Workflow Active Recruits Only") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
     work_flow_act  <- gsub("NA","0", work_flow_act )  
     
@@ -1667,7 +1709,7 @@ Table47_optreasons[nrow(Table47_optreasons),2] <- "Total Opt-Outs"
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header() %>%
-      modify_caption("Table 50. Current Status in Workflow Passive Recruits Only") %>%
+      modify_caption("Table 51. Current Status in Workflow Passive Recruits Only") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
     
    work_flow_pass  <- gsub("NA","0", work_flow_pass )  
@@ -1693,7 +1735,7 @@ Act_signin <-  recruit_timing %>%
   group_by(site) %>% tally()
 Act_signin$order <- rownames(Act_signin)
 ##Table 12 time from recruitment to Sign in
-table51_Tm_recr_sign1 <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & tm_recr_signin>= 0 ) %>% 
+table52_Tm_recr_sign1 <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & tm_recr_signin>= 0 ) %>% 
   mutate(time = as.numeric(tm_recr_signin),
          site = droplevels(site)) %>% # Summary by group using dplyr
   group_by(site) %>% 
@@ -1705,7 +1747,7 @@ table51_Tm_recr_sign1 <- recruit_timing %>% filter(d_512820379 == 486306141 & d_
             q3 = quantile(time, 0.75),
             max = max(time)))
 
-table51_Tm_recr_sign.total <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & tm_recr_signin>= 0 ) %>% 
+table52_Tm_recr_sign.total <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & tm_recr_signin>= 0 ) %>% 
   mutate(time = as.numeric(tm_recr_signin),
          site = droplevels(site)) %>% 
   dplyr::summarize(`Number Signed In`=n(),
@@ -1716,11 +1758,11 @@ table51_Tm_recr_sign.total <- recruit_timing %>% filter(d_512820379 == 486306141
             q3 = quantile(time, 0.75),
             max = max(time))
 
-table51_Tm_recr_sign.total$site <- "Total"
-table51_Tm_recr_sign <- rbind(table51_Tm_recr_sign1,table51_Tm_recr_sign.total)
-colnames(table51_Tm_recr_sign)[2] <- "Total Active Sign-In"
-table51_Tm_recr_sign$`Recruitment Type` <- "Active"
-table51_Tm_recr_sign <- table51_Tm_recr_sign %>% dplyr::rename(Site=site)
+table52_Tm_recr_sign.total$site <- "Total"
+table52_Tm_recr_sign <- rbind(table52_Tm_recr_sign1,table52_Tm_recr_sign.total)
+colnames(table52_Tm_recr_sign)[2] <- "Total Active Sign-In"
+table52_Tm_recr_sign$`Recruitment Type` <- "Active"
+table52_Tm_recr_sign <- table52_Tm_recr_sign %>% dplyr::rename(Site=site)
 
 length(recruit_timing[which(recruit_timing$tm_recr_signin < 0 & recruit_timing$d_512820379 == 486306141  & recruit_timing$d_230663853==353358909),c("Connect_ID","token","d_821247024","d_230663853","d_512820379","d_335767902","d_471593703","tm_recr_signin")])
 
@@ -1730,7 +1772,7 @@ signin_cst_tm <- recruit_timing %>% filter (d_827220437 >0 &
                                                     d_230663853==353358909 & d_919254129== 353358909)
 signin_cst_type <- as.data.frame(CrossTable(signin_cst_tm$d_512820379,signin_cst_tm$site)$t)
 
-table52_Tm_signin_cst <- recruit_timing %>% filter( d_827220437 >0 & 
+table53_Tm_signin_cst <- recruit_timing %>% filter( d_827220437 >0 & 
                                                     d_230663853==353358909 & d_919254129== 353358909 & tm_signin_cst>=0 ) %>% 
   mutate(time = as.numeric(tm_signin_cst),
          site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
@@ -1743,14 +1785,14 @@ table52_Tm_signin_cst <- recruit_timing %>% filter( d_827220437 >0 &
                    q3 = quantile(time, 0.75),
                    max = max(time))
 
-table52_Tm_signin_cst$site <- "Total"
-table52_Tm_signin_cst$recruitment_type <- ifelse(table52_Tm_signin_cst$d_512820379 == 486306141, "Active", ifelse(table52_Tm_signin_cst$d_512820379 ==854703046,"Passive", "Not Active"))
+table53_Tm_signin_cst$site <- "Total"
+table53_Tm_signin_cst$recruitment_type <- ifelse(table53_Tm_signin_cst$d_512820379 == 486306141, "Active", ifelse(table53_Tm_signin_cst$d_512820379 ==854703046,"Passive", "Not Active"))
 
-table52_Tm_signin_cst_errors <- recruit_timing%>% filter (d_827220437 >0 & 
+table53_Tm_signin_cst_errors <- recruit_timing%>% filter (d_827220437 >0 & 
                                                     d_230663853==353358909 & d_919254129== 353358909 & tm_signin_cst<0 )
 
 
-table52_Tm_signin_cst.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & 
+table53_Tm_signin_cst.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & 
                                                     d_230663853==353358909 & d_919254129== 353358909 & tm_signin_cst>=0  ) %>% 
   mutate(time = as.numeric((tm_signin_cst)),
          site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
@@ -1764,18 +1806,18 @@ table52_Tm_signin_cst.act <- recruit_timing %>% filter(d_512820379 == 486306141 
                    max = max(time))
 
 
-table52_Tm_signin_cst.act <- rbind(table52_Tm_signin_cst.act,table52_Tm_signin_cst[which(table52_Tm_signin_cst$recruitment_type=="Active"),c(2:10)])
-table52_Tm_signin_cst.act$order <- rownames(table52_Tm_signin_cst.act)
+table53_Tm_signin_cst.act <- rbind(table53_Tm_signin_cst.act,table53_Tm_signin_cst[which(table53_Tm_signin_cst$recruitment_type=="Active"),c(2:10)])
+table53_Tm_signin_cst.act$order <- rownames(table53_Tm_signin_cst.act)
 
-table52_Tm_signin_cst.act1 <- merge(signin_cst_type[which(signin_cst_type$x==486306141),], table52_Tm_signin_cst.act, by.x="y",by.y="site",all.y=TRUE)
+table53_Tm_signin_cst.act1 <- merge(signin_cst_type[which(signin_cst_type$x==486306141),], table53_Tm_signin_cst.act, by.x="y",by.y="site",all.y=TRUE)
 
-table52_Tm_signin_cst.act1$recruitment_type <- "Active"
-table52_Tm_signin_cst.act1 <- table52_Tm_signin_cst.act1[order(table52_Tm_signin_cst.act1$order),c(1,13,4:11)] ##remove the actual n of signin to consent
-colnames(table52_Tm_signin_cst.act1)[1:3] <- c("Site","Recruitment Type","Number Consent")
-table52_Tm_signin_cst.act1 <- table52_Tm_signin_cst.act1[order(as.numeric(rownames(table52_Tm_signin_cst.act1))),]
+table53_Tm_signin_cst.act1$recruitment_type <- "Active"
+table53_Tm_signin_cst.act1 <- table53_Tm_signin_cst.act1[order(table53_Tm_signin_cst.act1$order),c(1,13,4:11)] ##remove the actual n of signin to consent
+colnames(table53_Tm_signin_cst.act1)[1:3] <- c("Site","Recruitment Type","Number Consent")
+table53_Tm_signin_cst.act1 <- table53_Tm_signin_cst.act1[order(as.numeric(rownames(table53_Tm_signin_cst.act1))),]
 
 
-table52_Tm_signin_cst.pas <- recruit_timing %>% 
+table53_Tm_signin_cst.pas <- recruit_timing %>% 
   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & tm_signin_cst >=0
          ) %>% 
   mutate(time = as.numeric(tm_signin_cst),
@@ -1789,15 +1831,15 @@ table52_Tm_signin_cst.pas <- recruit_timing %>%
                    q3 = quantile(time, 0.75),
                    max = max(time))
                    
-table52_Tm_signin_cst.pas <- rbind(table52_Tm_signin_cst.pas,table52_Tm_signin_cst[which(table52_Tm_signin_cst$recruitment_type=="Passive"),c(2:10)])
-table52_Tm_signin_cst.pas$order <- as.numeric(rownames(table52_Tm_signin_cst.pas))
+table53_Tm_signin_cst.pas <- rbind(table53_Tm_signin_cst.pas,table53_Tm_signin_cst[which(table53_Tm_signin_cst$recruitment_type=="Passive"),c(2:10)])
+table53_Tm_signin_cst.pas$order <- as.numeric(rownames(table53_Tm_signin_cst.pas))
 
-table52_Tm_signin_cst.pas <- merge(signin_cst_type[which(signin_cst_type$x==854703046),], table52_Tm_signin_cst.pas, by.x="y",by.y="site", all.y=TRUE)
+table53_Tm_signin_cst.pas <- merge(signin_cst_type[which(signin_cst_type$x==854703046),], table53_Tm_signin_cst.pas, by.x="y",by.y="site", all.y=TRUE)
 
-table52_Tm_signin_cst.pas$recruitment_type <- "Passive"
-table52_Tm_signin_cst.pas$Freq <- ifelse(is.na(table52_Tm_signin_cst.pas$Freq), sum(signin_cst_type[which(signin_cst_type$x==854703046),]$Freq),table52_Tm_signin_cst.pas$Freq )
-table52_Tm_signin_cst.pas1 <- table52_Tm_signin_cst.pas[order(as.numeric(table52_Tm_signin_cst.pas$order)),c(1,13,3:11)]
-colnames(table52_Tm_signin_cst.pas1)[1:3] <- c("Site","Recruitment Type","Total Consent")
+table53_Tm_signin_cst.pas$recruitment_type <- "Passive"
+table53_Tm_signin_cst.pas$Freq <- ifelse(is.na(table53_Tm_signin_cst.pas$Freq), sum(signin_cst_type[which(signin_cst_type$x==854703046),]$Freq),table53_Tm_signin_cst.pas$Freq )
+table53_Tm_signin_cst.pas1 <- table53_Tm_signin_cst.pas[order(as.numeric(table53_Tm_signin_cst.pas$order)),c(1,13,3:11)]
+colnames(table53_Tm_signin_cst.pas1)[1:3] <- c("Site","Recruitment Type","Total Consent")
 
 length(recruit_timing[which(is.na(recruit_timing$tm_signin_cst) & recruit_timing$d_512820379 == 854703046  & recruit_timing$d_230663853==353358909 & recruit_timing$d_919254129== 353358909),c("Connect_ID","token","d_821247024","d_230663853","d_512820379","d_335767902","d_454445267","tm_signin_cst")])
 
@@ -1807,7 +1849,7 @@ length(recruit_timing[which(recruit_timing$tm_consent_prof < 0 & recruit_timing$
 cst_prof <-  recruit_timing %>% 
   filter(d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909)  %>% dplyr::select(d_512820379,site) %>%  group_by(d_512820379,site) %>% tally()
 
-table53_Tm_consent_prof <- recruit_timing %>% filter( d_827220437 >0 & d_230663853==353358909 &
+table54_Tm_consent_prof <- recruit_timing %>% filter( d_827220437 >0 & d_230663853==353358909 &
                                          d_919254129== 353358909 & d_699625233 == 353358909 & !is.na(tm_consent_prof) ) %>% 
   mutate(time = as.numeric(tm_consent_prof),
          site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
@@ -1821,10 +1863,10 @@ table53_Tm_consent_prof <- recruit_timing %>% filter( d_827220437 >0 & d_2306638
                    max = max(time))
 
 
-table53_Tm_consent_prof$site <- "Total"
-table53_Tm_consent_prof$recruitment_type <- ifelse(table53_Tm_consent_prof$d_512820379==486306141, "Active", ifelse(table53_Tm_consent_prof$d_512820379 ==854703046,"Passive", "Not Active"))
+table54_Tm_consent_prof$site <- "Total"
+table54_Tm_consent_prof$recruitment_type <- ifelse(table54_Tm_consent_prof$d_512820379==486306141, "Active", ifelse(table54_Tm_consent_prof$d_512820379 ==854703046,"Passive", "Not Active"))
 
-table53_Tm_consent_prof.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 &
+table54_Tm_consent_prof.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 &
                                          d_919254129== 353358909 & d_699625233 == 353358909 & !is.na(tm_consent_prof) ) %>% 
   mutate(time = as.numeric(tm_consent_prof),
          site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
@@ -1837,19 +1879,19 @@ table53_Tm_consent_prof.act <- recruit_timing %>% filter(d_512820379 == 48630614
                    q3 = quantile(time, 0.75),
                    max = max(time)
                    )
-table53_Tm_consent_prof.act <- rbind(table53_Tm_consent_prof.act,table53_Tm_consent_prof[which(table53_Tm_consent_prof$recruitment_type=="Active"),c(2:10)])
-table53_Tm_consent_prof.act$order <- rownames(table53_Tm_consent_prof.act)
+table54_Tm_consent_prof.act <- rbind(table54_Tm_consent_prof.act,table54_Tm_consent_prof[which(table54_Tm_consent_prof$recruitment_type=="Active"),c(2:10)])
+table54_Tm_consent_prof.act$order <- rownames(table54_Tm_consent_prof.act)
 
-table53_Tm_consent_prof.act1 <- merge(cst_prof[which(cst_prof$d_512820379 == 486306141),],table53_Tm_consent_prof.act,by.x="site",by.y="site", all.y=TRUE)
+table54_Tm_consent_prof.act1 <- merge(cst_prof[which(cst_prof$d_512820379 == 486306141),],table54_Tm_consent_prof.act,by.x="site",by.y="site", all.y=TRUE)
 
 
-table53_Tm_consent_prof.act1$d_512820379  <- "Active" 
-table53_Tm_consent_prof.act1<- table53_Tm_consent_prof.act1 %>% arrange(as.numeric(order))
-colnames(table53_Tm_consent_prof.act1)[2] <- "Recruitment Type"
-colnames(table53_Tm_consent_prof.act1)[4] <- "Number UP to Submit"
-table53_Tm_consent_prof.act1 <- table53_Tm_consent_prof.act1 %>% dplyr::rename(Site=site)
+table54_Tm_consent_prof.act1$d_512820379  <- "Active" 
+table54_Tm_consent_prof.act1<- table54_Tm_consent_prof.act1 %>% arrange(as.numeric(order))
+colnames(table54_Tm_consent_prof.act1)[2] <- "Recruitment Type"
+colnames(table54_Tm_consent_prof.act1)[4] <- "Number UP to Submit"
+table54_Tm_consent_prof.act1 <- table54_Tm_consent_prof.act1 %>% dplyr::rename(Site=site)
 
-table53_Tm_consent_prof.pas <- recruit_timing %>% filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
+table54_Tm_consent_prof.pas <- recruit_timing %>% filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
                                    d_919254129== 353358909 & d_699625233 == 353358909 & !is.na(tm_consent_prof ) ) %>% 
   mutate(time = as.numeric(tm_consent_prof),
          site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
@@ -1862,22 +1904,22 @@ table53_Tm_consent_prof.pas <- recruit_timing %>% filter(d_512820379 == 85470304
                    q3 = quantile(time, 0.75),
                    max = max(time))
 
-table53_Tm_consent_prof.pas <- rbind(table53_Tm_consent_prof.pas,table53_Tm_consent_prof[which(table53_Tm_consent_prof$recruitment_type=="Passive"),c(2:10)])
-table53_Tm_consent_prof.pas$order <- rownames(table53_Tm_consent_prof.pas)
-table53_Tm_consent_prof.pas <- merge(cst_prof[which(cst_prof$d_512820379 == 854703046),],table53_Tm_consent_prof.pas,by.x="site",by.y="site", all.y=TRUE)
+table54_Tm_consent_prof.pas <- rbind(table54_Tm_consent_prof.pas,table54_Tm_consent_prof[which(table54_Tm_consent_prof$recruitment_type=="Passive"),c(2:10)])
+table54_Tm_consent_prof.pas$order <- rownames(table54_Tm_consent_prof.pas)
+table54_Tm_consent_prof.pas <- merge(cst_prof[which(cst_prof$d_512820379 == 854703046),],table54_Tm_consent_prof.pas,by.x="site",by.y="site", all.y=TRUE)
 
-table53_Tm_consent_prof.pas$d_512820379 <- "Passive"
-table53_Tm_consent_prof.pas<- table53_Tm_consent_prof.pas %>% arrange(as.numeric(order) )
-colnames(table53_Tm_consent_prof.pas)[2] <- "Recruitment Type"
-colnames(table53_Tm_consent_prof.pas)[4] <- "Number UP to Submit"
-table53_Tm_consent_prof.pas <- table53_Tm_consent_prof.pas %>% dplyr::rename(Site=site)
+table54_Tm_consent_prof.pas$d_512820379 <- "Passive"
+table54_Tm_consent_prof.pas<- table54_Tm_consent_prof.pas %>% arrange(as.numeric(order) )
+colnames(table54_Tm_consent_prof.pas)[2] <- "Recruitment Type"
+colnames(table54_Tm_consent_prof.pas)[4] <- "Number UP to Submit"
+table54_Tm_consent_prof.pas <- table54_Tm_consent_prof.pas %>% dplyr::rename(Site=site)
 
 #Table 13. Time from UP Submitted to Verification Complete
 length(recruit_timing[which(recruit_timing$tm_prof_verif < 0 & recruit_timing$d_230663853==353358909  & recruit_timing$d_919254129==353358909 & recruit_timing$d_699625233== 353358909 & recruit_timing$d_821247024 != 875007964),c("Connect_ID","token","d_821247024","d_230663853","d_512820379","d_914594314","d_430551721","tm_prof_verif")])
 
 prof_verif <- recruit_timing %>% filter(d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 ) %>% dplyr::rename(Site=site) %>% group_by(d_512820379,Site) %>% tally()
 
-table54_Tm_prof_verif <- recruit_timing %>% filter( d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 & tm_prof_verif>0) %>% 
+table55_Tm_prof_verif <- recruit_timing %>% filter( d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 & tm_prof_verif>0) %>% 
   mutate(time = as.numeric(tm_prof_verif),
          Site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
   group_by(d_512820379 ) %>% 
@@ -1888,11 +1930,11 @@ table54_Tm_prof_verif <- recruit_timing %>% filter( d_827220437 >0 & d_230663853
                    mean = mean(time),sd=sd(time),
                    q3 = quantile(time, 0.75),
                    max = max(time))
-table54_Tm_prof_verif$Site <- "Total"
-table54_Tm_prof_verif$recruitment_type <- ifelse(table54_Tm_prof_verif$d_512820379==486306141, "Active", ifelse(table54_Tm_prof_verif$d_512820379 ==854703046,"Passive", "Not Active"))
+table55_Tm_prof_verif$Site <- "Total"
+table55_Tm_prof_verif$recruitment_type <- ifelse(table55_Tm_prof_verif$d_512820379==486306141, "Active", ifelse(table55_Tm_prof_verif$d_512820379 ==854703046,"Passive", "Not Active"))
 
 
-table54_Tm_prof_verif.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 & tm_prof_verif>0 ) %>% 
+table55_Tm_prof_verif.act <- recruit_timing %>% filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 & tm_prof_verif>0 ) %>% 
   mutate(time = as.numeric(tm_prof_verif),
          Site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
   group_by(Site) %>% 
@@ -1905,13 +1947,13 @@ table54_Tm_prof_verif.act <- recruit_timing %>% filter(d_512820379 == 486306141 
                    max = max(time))
 
  
-table54_Tm_prof_verif.act <- rbind(table54_Tm_prof_verif.act,table54_Tm_prof_verif[which(table54_Tm_prof_verif$recruitment_type=="Active"),c(2:10)])   
-table54_Tm_prof_verif.act$`Recruitment Type` <- "Active"
+table55_Tm_prof_verif.act <- rbind(table55_Tm_prof_verif.act,table55_Tm_prof_verif[which(table55_Tm_prof_verif$recruitment_type=="Active"),c(2:10)])   
+table55_Tm_prof_verif.act$`Recruitment Type` <- "Active"
 #colnames(table13_Tm_prof_verif.act)[2] <- "Total Active UPs to Verification"
-colnames(table54_Tm_prof_verif.act)[2] <- "Total UP Submitted"
+colnames(table55_Tm_prof_verif.act)[2] <- "Total UP Submitted"
 
 
-table54_Tm_prof_verif.pas <- recruit_timing %>% 
+table55_Tm_prof_verif.pas <- recruit_timing %>% 
   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 & d_919254129== 353358909 & d_699625233 == 353358909 & d_821247024 != 875007964 &  tm_prof_verif >=0 ) %>%   mutate(time = as.numeric(tm_prof_verif),
          Site = droplevels(site)) %>% # Summary by group using dplyr, to make the time units as hours
   group_by(Site) %>% 
@@ -1923,23 +1965,23 @@ table54_Tm_prof_verif.pas <- recruit_timing %>%
                    q3 = quantile(time, 0.75),
                    max = max(time))
 
-table54_Tm_prof_verif.pas <- rbind(table54_Tm_prof_verif.pas,table54_Tm_prof_verif[which(table54_Tm_prof_verif$recruitment_type=="Passive"),c(2:10)]) 
-table54_Tm_prof_verif.pas$order <- rownames(table54_Tm_prof_verif.pas)
-table54_Tm_prof_verif.pas <- merge(prof_verif[which(prof_verif$d_512820379 == 854703046),],table54_Tm_prof_verif.pas,by.x="Site",by.y="Site", all.y=TRUE)
+table55_Tm_prof_verif.pas <- rbind(table55_Tm_prof_verif.pas,table55_Tm_prof_verif[which(table55_Tm_prof_verif$recruitment_type=="Passive"),c(2:10)]) 
+table55_Tm_prof_verif.pas$order <- rownames(table55_Tm_prof_verif.pas)
+table55_Tm_prof_verif.pas <- merge(prof_verif[which(prof_verif$d_512820379 == 854703046),],table55_Tm_prof_verif.pas,by.x="Site",by.y="Site", all.y=TRUE)
 
-table54_Tm_prof_verif.pas$d_512820379 <- ifelse(table54_Tm_prof_verif.pas$Site=="Total","Passive",gsub("854703046","Passive",table54_Tm_prof_verif.pas$d_512820379))
-table54_Tm_prof_verif.pas$n <- ifelse(table54_Tm_prof_verif.pas$Site=="Total", sum(prof_verif[which(prof_verif$d_512820379 == 854703046),]$n), table54_Tm_prof_verif.pas$n)
-table54_Tm_prof_verif.pas<- table54_Tm_prof_verif.pas %>% arrange(as.numeric(order) )
-colnames(table54_Tm_prof_verif.pas)[2] <- "Recruitment Type"
+table55_Tm_prof_verif.pas$d_512820379 <- ifelse(table55_Tm_prof_verif.pas$Site=="Total","Passive",gsub("854703046","Passive",table55_Tm_prof_verif.pas$d_512820379))
+table55_Tm_prof_verif.pas$n <- ifelse(table55_Tm_prof_verif.pas$Site=="Total", sum(prof_verif[which(prof_verif$d_512820379 == 854703046),]$n), table55_Tm_prof_verif.pas$n)
+table55_Tm_prof_verif.pas<- table55_Tm_prof_verif.pas %>% arrange(as.numeric(order) )
+colnames(table55_Tm_prof_verif.pas)[2] <- "Recruitment Type"
 #colnames(table13_Tm_prof_verif.pas)[4] <- "Total Passive UPs to Verification"
-colnames(table54_Tm_prof_verif.pas)[4] <- "Total UP submitted"
+colnames(table55_Tm_prof_verif.pas)[4] <- "Total UP submitted"
 
 #Table 14. Total Enrollment Time
 # Summary by group using dplyr, to make the time units as hours
 enroll_verif <- recruit_timing %>% filter(d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964) %>% group_by(d_512820379,site) %>% tally()
 
-table55_Tm_enroll_verif <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","recru_time")]),] %>% 
+table56_Tm_enroll_verif <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","recru_time")]),] %>% 
   filter( d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964 & as.numeric(difftime(verified_time,recru_time,units="days")) >=0) %>% 
   mutate(time = as.numeric(difftime(verified_time,recru_time,units="days")),
@@ -1952,11 +1994,11 @@ table55_Tm_enroll_verif <- recruit_timing[complete.cases(recruit_timing[,c("veri
                    mean = mean(time),sd=sd(time),
                    q3 = quantile(time, 0.75),
                    max = max(time))
-table55_Tm_enroll_verif$site <- "Total"
-table55_Tm_enroll_verif$recruitment_type <- ifelse(table55_Tm_enroll_verif$d_512820379==486306141, "Active", ifelse(table55_Tm_enroll_verif$d_512820379 ==854703046,"Passive", "Not Active"))
+table56_Tm_enroll_verif$site <- "Total"
+table56_Tm_enroll_verif$recruitment_type <- ifelse(table56_Tm_enroll_verif$d_512820379==486306141, "Active", ifelse(table56_Tm_enroll_verif$d_512820379 ==854703046,"Passive", "Not Active"))
 
 
-table55_Tm_enroll_verif.act <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","recru_time")]),] %>% 
+table56_Tm_enroll_verif.act <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","recru_time")]),] %>% 
   filter(d_512820379 == 486306141 & d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964 & as.numeric(difftime(verified_time,recru_time,units="days")) >=0) %>% 
   mutate(time = as.numeric(difftime(verified_time,recru_time,units="days")),
@@ -1970,21 +2012,21 @@ table55_Tm_enroll_verif.act <- recruit_timing[complete.cases(recruit_timing[,c("
                    q3 = quantile(time, 0.75),
                    max = max(time))
 
-table55_Tm_enroll_verif.act$recruitment_type <- "Active"
-table55_Tm_enroll_verif.act <- rbind(table55_Tm_enroll_verif.act,table55_Tm_enroll_verif[which(table55_Tm_enroll_verif$recruitment_type=="Active"),c(2:11)]) 
+table56_Tm_enroll_verif.act$recruitment_type <- "Active"
+table56_Tm_enroll_verif.act <- rbind(table56_Tm_enroll_verif.act,table56_Tm_enroll_verif[which(table56_Tm_enroll_verif$recruitment_type=="Active"),c(2:11)]) 
 
          
-colnames(table55_Tm_enroll_verif.act)[1:2] <- c("Site","Total Verification Complete")
+colnames(table56_Tm_enroll_verif.act)[1:2] <- c("Site","Total Verification Complete")
 
 #passive from sign in time to verification time
-table55_signin_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>% 
+table56_signin_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>% 
   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964 ) %>% 
          mutate(site = droplevels(site)) %>% group_by(site) %>%
   dplyr::summarize('Total Verification Complete'=n())
 
 
-table55_Tm_signin_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>% 
+table56_Tm_signin_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>% 
   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964 & as.numeric(difftime(verified_time,signin_time,units="days")) >=0 ) %>% 
   mutate(time = as.numeric(difftime(verified_time,signin_time,units="days")),
@@ -1996,9 +2038,9 @@ table55_Tm_signin_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("
                    mean = mean(time),sd=sd(time),
                    q3 = quantile(time, 0.75),
                    max = max(time))
-table55_Tm_signin_verif.pas$site <- "Total"
+table56_Tm_signin_verif.pas$site <- "Total"
 
-table55_Tm_enroll_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>%   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
+table56_Tm_enroll_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("verified_time","signin_time")]),] %>%   filter(d_512820379 == 854703046 & d_827220437 >0 & d_230663853==353358909 &
          d_919254129== 353358909 & d_699625233 ==353358909 & d_821247024 != 875007964 & as.numeric(difftime(verified_time,signin_time,units="days")) >=0 ) %>% 
   mutate(time = as.numeric(difftime(verified_time,signin_time,units="days")),
          site = droplevels(site)) %>% 
@@ -2011,18 +2053,18 @@ table55_Tm_enroll_verif.pas <- recruit_timing[complete.cases(recruit_timing[,c("
                    q3 = quantile(time, 0.75),
                    max = max(time))
 
-table55_Tm_enroll_verif.pas <- rbind(table55_Tm_enroll_verif.pas,table55_Tm_signin_verif.pas) 
-table55_Tm_enroll_verif.pas$order <- as.numeric(rownames(table55_Tm_enroll_verif.pas))
-table55_Tm_enroll_verif.pas <- merge(table55_signin_verif.pas,table55_Tm_enroll_verif.pas,by.x="site",by.y="site", all.y=TRUE)
+table56_Tm_enroll_verif.pas <- rbind(table56_Tm_enroll_verif.pas,table56_Tm_signin_verif.pas) 
+table56_Tm_enroll_verif.pas$order <- as.numeric(rownames(table56_Tm_enroll_verif.pas))
+table56_Tm_enroll_verif.pas <- merge(table56_signin_verif.pas,table56_Tm_enroll_verif.pas,by.x="site",by.y="site", all.y=TRUE)
 
-table55_Tm_enroll_verif.pas$`Recruitment Type` <- "Passive"
-table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% arrange(order) 
-table55_Tm_enroll_verif.pas$`Total Verification Complete` <- ifelse(table55_Tm_enroll_verif.pas$site =="Total", sum(table55_signin_verif.pas$`Total Verification Complete`),table55_Tm_enroll_verif.pas$`Total Verification Complete` )
-table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Site=site)
+table56_Tm_enroll_verif.pas$`Recruitment Type` <- "Passive"
+table56_Tm_enroll_verif.pas <- table56_Tm_enroll_verif.pas %>% arrange(order) 
+table56_Tm_enroll_verif.pas$`Total Verification Complete` <- ifelse(table56_Tm_enroll_verif.pas$site =="Total", sum(table56_signin_verif.pas$`Total Verification Complete`),table56_Tm_enroll_verif.pas$`Total Verification Complete` )
+table56_Tm_enroll_verif.pas <- table56_Tm_enroll_verif.pas %>% dplyr::rename(Site=site)
 #colnames(table14_Tm_enroll_verif.act)[2] <- "Recruitment Type"
 
 #Daily Table 11. Age of Verified Participants
-    table56_age <- data[which(data$d_821247024 == 197316935),] %>% mutate(site=droplevels(site)) %>%
+    table57_age <- data[which(data$d_821247024 == 197316935),] %>% mutate(site=droplevels(site)) %>%
                select(site, age) %>% tbl_cross(
                       row = site,
                     col = age,
@@ -2031,19 +2073,19 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
                   digits=c(0,2),
                   margin_text="Total Verified Participants") 
     
-    table56_age[["table_body"]]$stat_0 <- sapply(strsplit(table56_age[["table_body"]]$stat_0," "),"[",1) 
+    table57_age[["table_body"]]$stat_0 <- sapply(strsplit(table57_age[["table_body"]]$stat_0," "),"[",1) 
     
-    table56_age <- table56_age%>%
+    table57_age <- table57_age%>%
            #bold_labels() %>%
            #italicize_levels() %>% 
            modify_header(stat_0 = "Total Verified \n Participants") %>%
-           modify_caption("Table 56. Age of Verified Participants") %>%
+           modify_caption("Table 57. Age of Verified Participants") %>%
            #modify_footnote(all_stat_cols() ~"Note: Based on de-identified data sent by sites") %>%
             as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
 			
 #Daily Tabel 12. Race of Verified Participants
     data$race <- factor(data$race, levels=c("White","Other","Unknown"))
-    table57_race <- data[which(data$d_821247024 == 197316935),] %>% select(site, race) %>% 
+    table58_race <- data[which(data$d_821247024 == 197316935),] %>% select(site, race) %>% 
      mutate(site=droplevels(site))  %>% tbl_cross(
       row = site,
       col = race,
@@ -2052,13 +2094,13 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
       digits=c(0,2),
       margin_text="Total Verified Participants") 
     
-    table57_race[["table_body"]]$stat_0 <- sapply(strsplit(table57_race[["table_body"]]$stat_0," "),"[",1) 
+    table58_race[["table_body"]]$stat_0 <- sapply(strsplit(table58_race[["table_body"]]$stat_0," "),"[",1) 
     
-    table57_race <- table57_race %>%
+    table58_race <- table58_race %>%
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header(stat_0 = "Total Verified \n Participants") %>%
-      modify_caption("Table 57. Race of Verified Participants") %>%
+      modify_caption("Table 58. Race of Verified Participants") %>%
       #modify_footnote(all_stat_cols() ~"Note: Based on de-identified data sent by sites") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
 
@@ -2066,7 +2108,7 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
 #Daily Table 13. Sex of Verified Participants
   data$sex <-factor(data$sex,levels=c("Female","Male", "Intersex or Other","Unknown"))
     
-   table58 <- data[which(data$d_821247024 == 197316935),] %>% mutate(site=droplevels(site)) %>% select(site, sex) %>% dplyr::arrange(site,sex) %>%
+   table59 <- data[which(data$d_821247024 == 197316935),] %>% mutate(site=droplevels(site)) %>% select(site, sex) %>% dplyr::arrange(site,sex) %>%
      tbl_cross(
       row = site,
       col = sex,
@@ -2076,18 +2118,18 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
       margin_text="Total Verified Participants") 
    
    
-   table58[["table_body"]]$stat_0 <- sapply(strsplit(table58[["table_body"]]$stat_0," "),"[",1)  
-   table58 <- table58 %>%
+   table59[["table_body"]]$stat_0 <- sapply(strsplit(table59[["table_body"]]$stat_0," "),"[",1)  
+   table59 <- table59 %>%
       #bold_labels() %>%
       #italicize_levels() %>% 
       modify_header(stat_0 = "Total Verified \n Participants") %>%
-      modify_caption("Table 58. Sex of Verified Participants") %>%
+      modify_caption("Table 59. Sex of Verified Participants") %>%
       #modify_footnote(all_stat_cols() ~"Note: Based on de-identified data sent by sites") %>%
       as_kable_extra(escape = FALSE, addtl_fmt = TRUE)
     
 
 #Table 48. Daily Table 15 Age of All Records
-   table59_ageall <- data[which(data$d_827220437>0),] %>% select(site, age) %>% tbl_cross(
+   table60_ageall <- data[which(data$d_827220437>0),] %>% select(site, age) %>% tbl_cross(
      row = site,
      col = age,
      label = list(age~ "Age",site ~ "Site"),
@@ -2095,17 +2137,17 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
      digits=c(0,2),
      margin_text="Total Recruits")
    
-   table59_ageall[["table_body"]]$stat_0 <- sapply(strsplit(table59_ageall[["table_body"]]$stat_0," "),"[",1)
+   table60_ageall[["table_body"]]$stat_0 <- sapply(strsplit(table60_ageall[["table_body"]]$stat_0," "),"[",1)
     
-   table59_ageall <- table59_ageall%>%
+   table60_ageall <- table60_ageall%>%
      #bold_labels() %>%
      #italicize_levels() %>% 
      modify_header() %>%
-     modify_caption("Table 59. Age of All Active and Passive Recruits") %>%
+     modify_caption("Table 60. Age of All Active and Passive Recruits") %>%
      as_kable_extra(escape = FALSE, addtl_fmt = TRUE) 
    
 #Daily Table 17. Race of All Records
-   table60_raceall <- data[which(data$d_827220437>0),] %>% select(site, race) %>% tbl_cross(
+   table61_raceall <- data[which(data$d_827220437>0),] %>% select(site, race) %>% tbl_cross(
      row = site,
      col = race,
      label = list(race~"Race",site ~ "Site"),
@@ -2113,17 +2155,17 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
      digits=c(0,2),
      margin_text="Total Recruits") 
    
-   table60_raceall[["table_body"]]$stat_0 <- sapply(strsplit(table60_raceall[["table_body"]]$stat_0," "),"[",1) 
+   table61_raceall[["table_body"]]$stat_0 <- sapply(strsplit(table61_raceall[["table_body"]]$stat_0," "),"[",1) 
     
-   table60_raceall <- table60_raceall %>%
+   table61_raceall <- table61_raceall %>%
      #bold_labels() %>%
      #italicize_levels() %>% 
      modify_header() %>%
-     modify_caption("Table 60. Race of All Active and Passive Recruits") %>%
+     modify_caption("Table 61. Race of All Active and Passive Recruits") %>%
      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)   
     
 #Table 61 (daily Table 18.) Sex of All Records
-   table61_sexall <- data[which(data$d_827220437>0),] %>% select(site, sex) %>% 
+   table62_sexall <- data[which(data$d_827220437>0),] %>% select(site, sex) %>% 
      dplyr::arrange(site,sex) %>% tbl_cross(
      row = site,
      col = sex,
@@ -2132,13 +2174,13 @@ table55_Tm_enroll_verif.pas <- table55_Tm_enroll_verif.pas %>% dplyr::rename(Sit
      digits=c(0,2),
      margin_text="Total Recruits")
    
-   table61_sexall[["table_body"]]$stat_0 <- sapply(strsplit(table61_sexall[["table_body"]]$stat_0," "),"[",1) 
+   table62_sexall[["table_body"]]$stat_0 <- sapply(strsplit(table62_sexall[["table_body"]]$stat_0," "),"[",1) 
     
-   table61_sexall <- table61_sexall%>%
+   table62_sexall <- table62_sexall%>%
      #bold_labels() %>%
      #italicize_levels() %>% 
      modify_header() %>%
-     modify_caption("Table 61. Sex of All Active and Passive Recruits") %>%
+     modify_caption("Table 62. Sex of All Active and Passive Recruits") %>%
      as_kable_extra(escape = FALSE, addtl_fmt = TRUE)   
    
 
@@ -2159,79 +2201,114 @@ clc.urinetm <- c("d_173836415_d_266600170_d_139245758","d_173836415_d_266600170_
 
 ref.wd <- c("d_773707518","d_747006172","d_831041022","d_664453818","d_269050420","d_659990606")
 
-var.list <- c("token","Connect_ID","d_821247024","d_914594314","d_512820379","state_d_158291096","d_471593703","d_827220437","site",
-              "d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_731498909",bio.col,modules,ref.wd)
+var.list <- unique(c("token","Connect_ID","d_821247024","d_914594314","d_512820379","state_d_158291096","d_471593703","d_827220437","site",
+              "d_130371375_d_266600170_d_787567527","d_130371375_d_266600170_d_731498909",bio.col,modules,ref.wd,clc.bldtm,clc.urinetm))
 
 veri_resp <- data[which(data$d_512820379 != 486306141 | data$d_821247024 != 922622075 ),var.list] %>%
-  mutate(recruit_year= year(ymd_hms(d_471593703)),
-          recruit_month = month(ymd_hms(d_471593703)),
-          verified_year= year(ymd_hms(d_914594314)),
-          verified_month = month(ymd_hms(d_914594314)),
+  mutate(recru_time = ymd_hms(d_471593703),
+         verified_time = ymd_hms(d_914594314),
          elgible.time = ymd_hms(d_130371375_d_266600170_d_787567527))
+veri_resp$recrstart.date <-  as_date(min(ymd_hms(veri_resp$d_471593703),na.rm=TRUE))
 
-veri_resp$verified_time <- ymd_hms(veri_resp$d_914594314)
-veri_resp$recru_time <- ymd_hms(veri_resp$d_471593703)
-veri_resp$recrstart.date <- as_date(min(veri_resp$recru_time,na.rm=TRUE))
-veri_resp$verified.week <- ceiling(as.numeric(difftime(as_date(veri_resp$verified_time),as_date(veri_resp$recrstart.date),units="days"))/7)
-veri_resp$verified.week.date <- (veri_resp$recrstart.date) + dweeks(veri_resp$verified.week)
 
-library(scales)
-#figure 1 
-veri_resp$verified_time <- ymd_hms(veri_resp$d_914594314)
- veri_resp$recru_time <- ymd_hms(ifelse(veri_resp$d_471593703 =="NA",veri_resp$d_914594314, veri_resp$d_471593703))
- veri_resp$recrstart.date <- as_date(min(as.POSIXct(veri_resp$recru_time),na.rm=TRUE))
-recrstart.date <- as_date(min(as.POSIXct(veri_resp$recru_time),na.rm=TRUE))
+veri_resp <- apply_labels(veri_resp,d_827220437 = "Site",#RcrtES_Site_v1r0
+                          d_827220437 = c("HealthPartners"= 531629870, "Henry Ford Health System"=548392715, 
+                                          "Kaiser Permanente Colorado" = 125001209, "Kaiser Permanente Georgia" = 327912200,
+                                          "Kaiser Permanente Hawaii" = 300267574,"Kaiser Permanente Northwest" = 452412599, 
+                                          "Marshfield Clinic Health System" = 303349821,"Sanford Health" = 657167265, 
+                                          "University of Chicago Medicine" = 809703864, "National Cancer Institute" = 517700004,
+                                          "National Cancer Institute" = 13,"Other" = 181769837))
+veri_resp$site <- factor(veri_resp$d_827220437,
+                         levels=c("HealthPartners", "Henry Ford Health System","Marshfield Clinic Health System",
+                                  "Sanford Health", "University of Chicago Medicine","Kaiser Permanente Colorado",
+                                  "Kaiser Permanente Georgia","Kaiser Permanente Hawaii","Kaiser Permanente Northwest",
+                                  "National Cancer Institute","Other"))
+veri_resp$site <- droplevels(veri_resp$site)
+# veri_resp$recru_time <- ymd_hms(veri_resp$d_471593703)
+# veri_resp$verified_time <- ymd_hms(veri_resp$d_914594314)
+# veri_resp$recrstart.date <- as_date(min(ymd_hms(veri_resp$d_471593703),na.rm=TRUE))
+recrstart.date <- as_date(min(ymd_hms(veri_resp$recru_time),na.rm=TRUE))
+wday(unique(veri_resp$recrstart.date), week_start = 1)
+#[1] 5
+as_date(recrstart.date-days(5))
+#[1] "2021-07-18" #Sunday the censoring starting day
+wday(as_date(recrstart.date-days(5)),week_start=1)
+#[1] 1 #Sunday
+veri_resp$recruit.week <- ceiling(as.numeric(difftime(as_date(veri_resp$recru_time), as_date(veri_resp$recrstart.date-days(5)),units="days"))/7) #to lock at Monday as the start of week
+veri_resp$recruit.week.date <- veri_resp$recrstart.date + days(2) + dweeks(veri_resp$recruit.week-1) #to present the date of the starting date in the following week
+summary(as_date(veri_resp$recruit.week.date))
+# Min.      1st Qu.       Median         Mean      3rd Qu.         Max. 
+# "2021-07-25" "2022-08-14" "2022-11-06" "2022-10-25" "2023-01-15" "2023-03-26" 
+veri_resp$verified.week <- ceiling(as.numeric(difftime(as_date(ymd_hms(veri_resp$d_914594314)),as_date(veri_resp$recrstart.date-days(5)),units="days"))/7)
+veri_resp$verified.week.date <- (veri_resp$recrstart.date) + days(2)+ dweeks(veri_resp$verified.week-1)
 
- veri_resp$verified.week <- ceiling(as.numeric(difftime(as_date(veri_resp$verified_time),as_date(veri_resp$recrstart.date),units="days"))/7)
- veri_resp$verified.week.date <-  veri_resp$recrstart.date + dweeks(veri_resp$verified.week)
- 
- veri_resp$recruit.week <- ceiling(as.numeric(difftime(as_date(veri_resp$recru_time), as_date(veri_resp$recrstart.date),units="days"))/7)
- veri_resp$recruit.week.date <- veri_resp$recrstart.date + dweeks(veri_resp$recruit.week)
- ###to create the time censoring variables by week;
-  recruit.wk.active <- veri_resp[which(veri_resp$d_512820379==486306141),] %>% 
-   group_by(recruit.week,recruit.week.date) %>%
-   dplyr::summarize(active_recruits=n())
- 
- verified.wk.active <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_512820379==486306141),] %>% 
-   group_by(verified.week,verified.week.date) %>%
-   dplyr::summarize(active_verifieds=n())
- 
- verified.wk.total <- veri_resp[which(veri_resp$d_821247024 == 197316935),] %>% 
-   group_by(verified.week,verified.week.date) %>%
-   dplyr::summarize(total_verifieds=n())
- 
- verified.wk.all <- merge(verified.wk.active,verified.wk.total, by.x=c("verified.week","verified.week.date"), by.y = c("verified.week", "verified.week.date"), all.y=TRUE)
- verified.wk.all$verified.week.date[is.na(verified.wk.all$verified.week.date)]<- recrstart.date + verified.wk.all$verified.week*7
- recrui_wk_verified <- merge(recruit.wk.active,verified.wk.all, by.x=c("recruit.week","recruit.week.date"),by.y=c("verified.week","verified.week.date"),all.x=TRUE,all.y=TRUE)
- recrui_wk_verified[is.na(recrui_wk_verified)] <- 0
- 
- recrui_wk_verified <- recrui_wk_verified %>% arrange(recruit.week,recruit.week.date)
- 
- recrui_wk_verified$passive_verified <- recrui_wk_verified$total_verified-recrui_wk_verified$active_verifieds #new passive recruitment
- recrui_wk_verified$total_recruits <- recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verified ##the total recruits till that week
+min(as_date(ymd_hms(veri_resp$verified_time)),na.rm=TRUE)
+# [1] "2021-07-27"
+unique(as_date(min(veri_resp$verified.week.date,na.rm=TRUE)))
+#[1] "2021-08-01"
+unique(as_date(max(veri_resp$verified.week.date,na.rm=TRUE)))
+#[1] "2023-03-26"
+wday(as_date(recrstart.date-days(5)),week_start=1)
+#7 Sunday
+###to create the time censoring variables by week;
+veri_resp <- veri_resp[which(veri_resp$recruit.week.date < currentDate),] #as Michelle and Amelia want to set up the censor week as Monday to Sunday (the Sunday would be the last day of the week, and the report is done every Monday), the data on the week of the checking day would be excluded from the analytical dataset 
+#verified  over time:
+
+recruit.wk.active <- veri_resp[which(veri_resp$d_512820379==486306141),] %>% 
+  group_by(recruit.week,recruit.week.date) %>%
+  dplyr::summarize(active_recruits=n(),
+                   recruitdate_max=max(recru_time,rm.na=T))
+
+verified.wk.active <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_512820379==486306141 & veri_resp$verified.week.date < currentDate),] %>% 
+  group_by(verified.week,verified.week.date) %>%
+  dplyr::summarize(active_verifieds=n(),
+                   verified_activetime.max=max(verified_time,rm.na=T))
+
+verified.wk.total <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$verified.week.date < currentDate),] %>% 
+  group_by(verified.week,verified.week.date) %>%
+  dplyr::summarize(total_verifieds=n(),
+                   verified_time.max=max(verified_time,rm.na=T))
+
+verified.wk.all <- merge(verified.wk.active,verified.wk.total, by.x = c("verified.week","verified.week.date"),by.y=c("verified.week","verified.week.date"),all.y=TRUE,all.x=TRUE)
+verified.wk.all$verified.week.date[is.na(verified.wk.all$verified.week.date)]<- recrstart.date + days(3)+ dweeks(verified.wk.all$verified.week-1)
+recrui_wk_verified <- merge(recruit.wk.active,verified.wk.all, by.x=c("recruit.week","recruit.week.date"),by.y=c("verified.week","verified.week.date"),all.x=TRUE,all.y=TRUE)
+recrui_wk_verified <- recrui_wk_verified %>% 
+  mutate_at(c("active_recruits","active_verifieds","total_verifieds"),~replace_na(., 0))
+
+#recrui_wk_verified <- recrui_wk_verified %>% mutate(week.date=as_date(do.call(pmax, c(select(.,ends_with('max')),na.rm=TRUE))))
+
+recrui_wk_verified <- recrui_wk_verified %>% arrange(recruit.week,recruit.week.date)
+
 # passive recruits are the passive verified
- 
-  recrui_wk_verified$total_recruits.cum <- cumsum(recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verified) ##the total recruits till that week
- recrui_wk_verified$active_verifieds.cum <- cumsum(recrui_wk_verified$active_verifieds)
- 
- recrui_wk_verified$total_verified.cum <- cumsum(recrui_wk_verified$total_verifieds)
- recrui_wk_verified$active_recruits.cum <- cumsum(recrui_wk_verified$active_recruits)
- 
- #new response rate:
- recrui_wk_verified$new.active.response.rate <- ifelse(recrui_wk_verified$active_recruits >0, 100*(recrui_wk_verified$active_verifieds/recrui_wk_verified$active_recruits), 0)
- 
- recrui_wk_verified$new.passive.response.rate <- ifelse(recrui_wk_verified$active_recruits!=0, 100*(recrui_wk_verified$passive_verified/recrui_wk_verified$active_recruits),NA)
- recrui_wk_verified$new.total.response.rate <- ifelse(recrui_wk_verified$active_recruits>0, 100*(recrui_wk_verified$total_verifieds/recrui_wk_verified$active_recruits), 0)
- 
- #cumalative rate
- recrui_wk_verified$cum.active.response.rate <- 100*(cumsum(recrui_wk_verified$active_verifieds)/cumsum(recrui_wk_verified$active_recruits))
- recrui_wk_verified$cum.passive.response.rate <- 100*(cumsum(recrui_wk_verified$passive_verified)/cumsum(recrui_wk_verified$active_recruits))
- recrui_wk_verified$cum.total.response.rate <- 100*(cumsum(recrui_wk_verified$total_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+recrui_wk_verified$passive_verifieds <- recrui_wk_verified$total_verifieds-recrui_wk_verified$active_verifieds #new passive recruitment
+recrui_wk_verified$active_recruits.cum <- cumsum(recrui_wk_verified$active_recruits)
+recrui_wk_verified$passive_verifieds.cum <- cumsum(recrui_wk_verified$passive_verifieds)
+recrui_wk_verified$active_verifieds.cum <- cumsum(recrui_wk_verified$active_verifieds)
+
+recrui_wk_verified$total_recruits <- recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verifieds ##the total recruits till that week
+
+recrui_wk_verified$total_recruits.cum <- cumsum(recrui_wk_verified$active_recruits + recrui_wk_verified$passive_verifieds) ##the total recruits till that week
+
+recrui_wk_verified$total_verified.cum <- cumsum(recrui_wk_verified$total_verifieds)
+
+#new response rate:
+recrui_wk_verified$new.active.response.rate <- ifelse(recrui_wk_verified$active_recruits >0, 100*(recrui_wk_verified$active_verifieds/recrui_wk_verified$active_recruits), 0)
+recrui_wk_verified$new.passive.response.rate <- ifelse(recrui_wk_verified$active_recruits!=0, 100*(recrui_wk_verified$passive_verifieds/recrui_wk_verified$active_recruits),NA)
+recrui_wk_verified$new.total.response.rate <- ifelse(recrui_wk_verified$active_recruits>0, 100*(recrui_wk_verified$total_verifieds/recrui_wk_verified$active_recruits), 0)
+
+#cumalative rate
+recrui_wk_verified$cum.active.response.rate <- 100*(cumsum(recrui_wk_verified$active_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+recrui_wk_verified$cum.passive.response.rate <- 100*(cumsum(recrui_wk_verified$passive_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+recrui_wk_verified$cum.total.response.rate <- 100*(cumsum(recrui_wk_verified$total_verifieds)/cumsum(recrui_wk_verified$active_recruits))
+
+###for the verified group on their biospecimen collections, module completions, eligibility and refusal and withdrawal
+veri_resp$elgible.time <- ymd_hms(veri_resp$d_130371375_d_266600170_d_787567527) 
+veri_resp$eligible.week <- ifelse(!is.na( veri_resp$d_130371375_d_266600170_d_787567527) & veri_resp$d_821247024==197316935, ceiling(as.numeric(difftime(as_date(veri_resp$elgible.time), as_date(recrstart.date-days(5)), units="days"))/7), NA)
 
  
  recrui_verified_22 <- recrui_wk_verified[which(recrui_wk_verified$recruit.week>23),]
  max_y <- max(recrui_wk_verified$total_verified.cum)
- breaks <- seq(1000,1000*round(max_y/1000,0),1000)
+ breaks <- seq(0,1000*round(max_y/1000,0),1000)
 #figure 1
 response_rate.plot <- ggplot(recrui_wk_verified,aes(x=as.Date(recruit.week.date))) + 
      geom_area(aes(y=total_verified.cum),fill="lightblue") +  #the geom_line also can be applied#
@@ -2272,11 +2349,12 @@ for(site in unique(veri_resp[which(veri_resp$d_827220437>0),]$site)){
   veri_allsites <- rbind(veri_allsites,subs_verif)
 } 
 colnames(veri_allsites)
-veri_allsites$verified.week.date <- (veri_allsites$recrstart.date) + dweeks(veri_allsites$verified.week)
+veri_allsites$verified.week.date <- (veri_allsites$recrstart.date) + days(3) + dweeks(veri_allsites$verified.week-1)
+
 
 max_y.site <- 100*ceiling(round(max(veri_allsites$Total.verified/100),1))
 breaks.site <- seq(300,max_y.site,300)
-Fig2_verified_time <- ggplot(veri_allsites,aes(y=Total.verified, x=as.Date(verified.week.date, origin = lubridate::origin),color=site)) + geom_line() +    geom_point()+
+Fig2_verified_time <- filter(veri_allsites,as.Date(verified.week.date) < currentDate) %>% ggplot(aes(y=Total.verified, x=as.Date(verified.week.date, origin = lubridate::origin),color=site)) + geom_line() +    geom_point()+
   scale_y_continuous(name="# Verified", limits=c(0,max_y.site),breaks=breaks.site) +
   scale_x_date(name="Date of Verification",limit=as.Date(c("2021-07-19",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
   ggtitle("Number Verified Over Time")+
@@ -2450,7 +2528,7 @@ verified_expect_bld.plot <- ggplot(verifed_expected_n1[which(verifed_expected_n1
   scale_fill_manual(values = c("lightblue","azure","yellow","pink"), 
                     name="" ,labels=(c("Verified, no Activities","Survey Only","Blood Only","Survey + Blood")))+
   scale_color_manual("",label="Expected",values="red")+
-  scale_y_continuous(name="Individuals, N", breaks=c(100,500,1000,1500,2000,2500,3000) ) +
+  scale_y_continuous(name="Individuals, N", breaks=c(0,100,500,1000,1500,2000,2500,3000) ) +
   #guides(col = guide_legend(ncol = 1),colors=`Expected Verified`) +
   
   #geom_text(aes(y=label.count, label= Expected_Verified_n),color="black",vjust=1.0,size=3.0) + labs(x = "", y = "# Participants") + 
@@ -2465,28 +2543,33 @@ verified_expect_bld.plot <- ggplot(verifed_expected_n1[which(verifed_expected_n1
 
  #Figure of cumulative verified participants with cumulative complete participants overlaid and time of verification on the x-axis OVERALL and BY SITE
   veri_resp$elgible.time <- ymd_hms(veri_resp$d_130371375_d_266600170_d_787567527) 
-  veri_resp$eligible.week <- ifelse(!is.na( veri_resp$d_130371375_d_266600170_d_787567527) & veri_resp$d_821247024==197316935,ceiling(as.numeric(difftime(as_date(veri_resp$elgible.time),as_date(veri_resp$recrstart.date),units="days"))/7),NA)
- veri_resp$verified.week.date <-  veri_resp$recrstart.date + dweeks(veri_resp$verified.week)
+
+  veri_resp$elgible.time <- ymd_hms(veri_resp$d_130371375_d_266600170_d_787567527) 
+veri_resp$eligible.week <- ifelse(!is.na( veri_resp$d_130371375_d_266600170_d_787567527) & veri_resp$d_821247024==197316935, ceiling(as.numeric(difftime(as_date(veri_resp$elgible.time), as_date(recrstart.date-days(5)),units="days"))/7), NA)
+
+  
+ #veri_resp$verified.week.date <-  veri_resp$recrstart.date + dweeks(veri_resp$verified.week)
  
  eligible.wk.total <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_130371375_d_266600170_d_731498909 ==353358909 ),] %>% 
    group_by(eligible.week) %>%
    dplyr::summarize(total_eligible=n())
  
  veri_wk_eligble <- merge(verified.wk.total, eligible.wk.total,by.x="verified.week",by.y="eligible.week", all.x=TRUE,all.y=TRUE)
- veri_wk_eligble[is.na(veri_wk_eligble)] <- 0
+ veri_wk_eligble$total_verifieds[is.na(veri_wk_eligble$total_verifieds)] <- 0
+ veri_wk_eligble$total_eligible[is.na(veri_wk_eligble$total_eligible)] <- 0
  veri_wk_eligble <- veri_wk_eligble %>% arrange(verified.week)%>% 
    mutate(total_verified.cum=cumsum(total_verifieds),
           total_eligible.cum=cumsum(total_eligible))
 
-max0 <- max(veri_wk_eligble$total_verified.cum)
+max0 <- max(veri_wk_eligble[which(as.Date(veri_wk_eligble$verified.week.date)<currentDate),]$total_verified.cum)
 
-fig4<- ggplot(veri_wk_eligble,aes(x=as.Date(verified.week.date, origin = lubridate::origin))) + 
+fig4<- veri_wk_eligble %>% filter(as.Date(verified.week.date) < currentDate) %>% ggplot(aes(x=as.Date(verified.week.date, origin = lubridate::origin))) + 
      geom_area(aes(y=total_eligible.cum),fill="lightblue") +  
      geom_line(aes(y=total_verified.cum), color="red") +
      scale_y_continuous(name="# Verified Participants",  breaks=breaks,
                         sec.axis = sec_axis( ~ . , name = "Cumulative Payment Eligible Participants")) +
      coord_cartesian(ylim =c(45,max0)) +
-     scale_x_date(limit=c(as.Date("2022-01-01", origin = lubridate::origin),currentDate),name="Date of Recruitment",expand=c(0,0),date_labels = "%m/%d/%Y", date_breaks = "2 weeks")  +
+     scale_x_date(limit=c(as.Date("2022-01-01", origin = lubridate::origin),as.Date(currentDate)-1),name="Date of Recruitment",expand=c(0,0),date_labels = "%m/%d/%Y", date_breaks = "2 weeks")  +
      ggtitle("Number Verified Participants & Payment-Eligible Participants \n Over Time of All Sites")+
      theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 12, face = "bold") ,
             axis.title.y = element_text(size = 12, face = "bold",color="black"),
@@ -2520,21 +2603,18 @@ verified.wk.total.site <- veri_resp[which(veri_resp$d_821247024 == 197316935),] 
    group_by(site,verified.week,verified.week.date) %>%
    dplyr::summarize(total_verifieds=n())
 
-
-  
  veri_wk_eligble.site <- merge(verified.wk.total.site, eligible.wk.total.site,by.x=c("verified.week","site"),by=c("eligible.week","site"), all.x=TRUE,all.y=TRUE)
-veri_wk_eligble.site$verified.week.date[is.na(veri_wk_eligble.site$verified.week.date)] <- recrstart.date + veri_wk_eligble.site$verified.week*7
+ 
+veri_wk_eligble.site$verified.week.date <- as.Date(ifelse(is.na(veri_wk_eligble.site$verified.week.date),recrstart.date + veri_wk_eligble.site$verified.week*7,veri_wk_eligble.site$verified.week.date))
  
  veri_wk_eligble.site$total_verifieds[is.na(veri_wk_eligble.site$total_verifieds)] <- 0
 veri_wk_eligble.site$total_eligible[is.na(veri_wk_eligble.site$total_eligible)] <- 0
-
  
  #veri_wk_eligble.site$verified.week.date[is.na(veri_wk_eligble.site$verified.week.date)] <- 0
  veri_wk_eligble.site <- veri_wk_eligble.site %>% arrange(site,verified.week)%>% 
    group_by(site)%>%
    mutate(total_verified.cum=cumsum(total_verifieds),
           total_eligible.cum=cumsum(total_eligible))
- 
 
 
  veri_wk_eligble$site <- "All.Sites"
@@ -2544,14 +2624,14 @@ for (i in 1:9){
   site <- levels(veri_wk_eligble.site$site)[i]
   sub <- veri_wk_eligble.site[which(veri_wk_eligble.site$site==site),]
   max <- 100*ceiling(round(max(sub$total_verified.cum/100),1))
-  breaks.site <- seq(100,max,200)
+  breaks.site <- seq(0,max,200)
  figure <- ggplot(sub,aes(x=as.Date(verified.week.date, origin = lubridate::origin))) + 
      geom_area(aes(y=total_eligible.cum),fill="lightblue") +  
      geom_line(aes(y=total_verified.cum), color="red")+ 
     scale_y_continuous(name="# Verified Participants",  breaks=breaks.site,
                         sec.axis = sec_axis( ~ . , name = "Cumulative Payment Eligible Participants")) +
      coord_cartesian(ylim =c(5,max)) +
-     scale_x_date(limit=c(as.Date("2022-01-01", origin = lubridate::origin),currentDate),expand=c(0,0),name="Date of Recruitment",date_labels = "%m/%d/%Y", date_breaks = "2 weeks")  +
+     scale_x_date(limit=c(as.Date("2022-01-01", origin = lubridate::origin),as.Date(currentDate)-1),expand=c(0,0),name="Date of Recruitment",date_labels = "%m/%d/%Y", date_breaks = "2 weeks")  +
      ggtitle(paste0("Number Verified Participants & Payment Eligible Participants \n" ,
                      "Over Time ",site))+
      theme( panel.background = element_blank(),
@@ -2577,6 +2657,672 @@ for (i in 1:9){
   p8 <- Fig4[[8]]
   p9 <- Fig4[[9]]
 
+  ##Sep. 6, 2023 the requests from 
+  
+# https://github.com/Analyticsphere/metricsReportsRequests/issues/66  Table or Figure title:
+# (1)Weekly Counts of Enrollment through Study Activity Completion through DATE - Overall
+# (2-10)Weekly Counts of Enrollment through Study Activity Completion through DATE - Site
+# Metrics to be updated or created: Operations Report
+# 
+# Variables needed: use same variables and calculations for invitations, verified, and survey+blood completes that are in the weekly log.
+# 
+# Notes:
+# Jing, we would like to add 10 time trend plots (one overall and the rest by site) that show enrollment through study activity completion by week. All on the same plot we would like the following time trends
+# -number of invitations
+# -number verified
+# -number of survey+blood (e.g. completes)
+# this is similar to the plots you made for Mia, but this should be non-cumulative with timepoints by week. (see plot 7 on biospecimen report for example of non-cumulative, weekly plot. )
+# to add the second y-axis in the plot aggreed with Michelle and Nicole
+  
+# Requestor(s): Amelia Roberts and Kaitlyn Mazzilli https://github.com/Analyticsphere/metricsReportsRequests/issues/67
+# 
+# Table or Figure title: Weekly Counts of Withdrawals and Rates by Invitations Through DATE Overall
+# Weekly Counts of Withdrawals and Rates by Invitations Through DATE SITE
+# 
+# Metrics to be updated or created: Weekly Operations Report
+# 
+# Variables needed (include variable name and Concept ID): Date withdrew consent (659990606) and Date requested data destroyed (269050420)
+# 
+# Specify numerator and denominator by variable name where applicable:
+# 
+# Mock-up table if applicable:
+# 
+# Notes:
+# We would like to add time trend plots to the operations report, one overall, and the rest by site (so 10 figures total) of withdrawal request counts and rates by invitations per week. We are interested in seeing one trend line of the counts of people who either requested withdrawal AND/OR have data destruction. This is because participants who request withdrawals with data destructions do not have a timestamp under withdraw, they have a timestamp under data destruction. We would like to have one line for the counts and a second line on the same figure for the rates where rate=N withdrawals/ N invitations.
+# Michelle's comments: we need withdrawal without data destruction (one curve) and with withdrawal with data destruction (second curve).
+  
+  veri_act <- filter(veri_resp,d_821247024==197316935) %>% 
+  mutate(law.time = ymd_hms(d_264644252),
+         sas.time = ymd_hms(d_770257102),
+         mre.time = ymd_hms(d_832139544),
+         boh.time = ymd_hms(d_517311251),
+         bldcol.time = case_when(d_878865966 == 353358909 ~ pmin(as.POSIXct(d_173836415_d_266600170_d_561681068),as.POSIXct(d_173836415_d_266600170_d_982213346),as.POSIXct(d_173836415_d_266600170_d_398645039),as.POSIXct(d_173836415_d_266600170_d_822274939),na.rm=TRUE)),
+         urine.time = case_when(d_167958071 == 353358909 ~ pmin(as.POSIXct(d_173836415_d_266600170_d_847159717),as.POSIXct(d_173836415_d_266600170_d_139245758),as.POSIXct(d_173836415_d_266600170_d_541311218),as.POSIXct(d_173836415_d_266600170_d_224596428),na.rm=TRUE)),
+         mw.time = ymd_hms(d_173836415_d_266600170_d_448660695),
+         biospeDonation = ifelse(d_878865966 %in% c(104430631,NA)  & d_167958071 %in% c(104430631,NA) & d_684635302 %in% c(104430631,NA),"No Sample Donations",
+                                 ifelse(d_878865966 == 353358909 & d_167958071 == 353358909 & d_684635302 == 353358909,"Completed All 3 Sample Donations", 
+                                        "Completed Some but Not All 3 Sample Donations")),
+         biospeComplete = case_when(biospeDonation =="Completed All 3 Sample Donations" | 
+                                      (d_173836415_d_266600170_d_592099155==664882224 & d_878865966 == 353358909 & d_167958071 == 353358909)  ~ 1,
+                                    biospeDonation == "No Sample Donations" | ( biospeDonation == "Completed Some but Not All 3 Sample Donations" & 
+                                                                                  d_173836415_d_266600170_d_592099155 %in% c(534621077,NA)) | 
+                                      d_173836415_d_266600170_d_592099155==664882224 & d_878865966 %in% c(104430631, NA) | d_167958071 %in% c(104430631, NA) ~ 0),
+         Module.complete = ifelse(d_100767870==353358909,"Complete","NotComplete"),
+         WdConsentVer = ifelse(d_747006172 == 353358909 & d_831041022 == 104430631, 353358909,
+                               ifelse(d_747006172 != 353358909  | d_831041022 != 104430631,104430631, NA)),
+         DestroyDataVer = ifelse(d_831041022 == 353358909, 353358909, ifelse(d_831041022 != 353358909,104430631, NA))
+         )
+
+veri_act$module.tm <- do.call(pmax, c(veri_act[,c("sas.time","mre.time","law.time","boh.time")],na.rm=TRUE))
+veri_act <- veri_act%>% 
+  mutate(module.time  = as_datetime(ifelse(d_100767870 ==353358909,module.tm,ifelse( d_100767870 ==104430631,NA,NA))),
+         bioany.time = pmin(as.POSIXct(bldcol.time),as.POSIXct(urine.time),as.POSIXct(mw.time), na.rm = TRUE), #the earliest time of any collection
+         biocol.time = pmax(as.POSIXct(bldcol.time),as.POSIXct(urine.time),as.POSIXct(mw.time), na.rm = TRUE)) ##the most recent time of any collection
+
+veri_act <- veri_act%>% mutate(
+  module.week = ifelse(!is.na(module.time),ceiling(as.numeric(difftime(as_date(module.time)+days(5),as_date(recrstart.date),units="days"))/7),NA),
+  anybio.week = ifelse(!is.na(bioany.time),ceiling(as.numeric(difftime(as_date(bioany.time+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  biocol.week = ifelse(!is.na(biocol.time),ceiling(as.numeric(difftime(as_date(biocol.time+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  bldcol.week = ifelse(!is.na(bldcol.time),ceiling(as.numeric(difftime(as_date(bldcol.time+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  dtdestroy.week = ifelse(!is.na(d_269050420),ceiling(as.numeric(difftime(as_date(ymd_hms(d_269050420)+days(5)),as_date(recrstart.date), units="days"))/7),NA),
+  wdconsent.week = ifelse(!is.na(d_659990606),ceiling(as.numeric(difftime(as_date(ymd_hms(d_659990606)+days(5)),as_date(recrstart.date), units="days"))/7),NA))
+
+##to recreate the new variable of th competions based on the updated concept of completions as the completions 
+###of all four baseline modules and blood collections as Yes.
+veri_act <- veri_act%>% mutate(allacts0 = case_when(d_100767870 == 353358909 & biospeComplete==1 ~ 353358909,
+                                                    d_100767870 == 104430631  | biospeComplete %in% c(0,NA) ~ 104430631 ),
+                               allacts1 = case_when(d_100767870 == 353358909 & d_878865966 == 353358909 ~ 353358909,
+                                                    d_100767870 == 104430631  | d_878865966 %in% c(0,NA) ~ 104430631 ))
+# veri_act$allacts.time <- apply(veri_act[,c("module.time","biocol.time")],1,max)
+# veri_act$allacts.week <- ceiling(as.numeric(difftime(as_date(ymd_hms(veri_act$allacts.time)+days(5)),as_date(recrstart.date), units="days"))/7)
+
+veri_act$allacts.time1 <- apply(veri_act[,c("module.time","bldcol.time")],1,max)
+veri_act$allacts.week1 <- ceiling(as.numeric(difftime(as_date(as.POSIXct(veri_act$allacts.time1)+days(5)),
+                                                      as_date(recrstart.date), units="days"))/7)
+
+allacts.wk.total <- filter(veri_act,allacts1==353358909) %>% arrange(allacts.week1,verified.week) %>% 
+  group_by(allacts.week1)%>%
+  dplyr::summarize(total_allacts=n(),
+                   allacts.time.max=max(allacts.time1,rm.na=T))
+
+ dtdestroy.wk.total <- filter(veri_act,DestroyDataVer ==353358909) %>% arrange(dtdestroy.week,verified.week) %>% 
+  group_by(dtdestroy.week)%>%
+  dplyr::summarize(total_dtdestroy=n())
+
+wdconsent.wk.total <- filter(veri_act,WdConsentVer ==353358909 & !is.na(wdconsent.week)) %>% arrange(wdconsent.week,verified.week) %>% 
+  group_by(wdconsent.week)%>%
+  dplyr::summarize(total_wdconsent=n())
+
+veri_wk_activie <- merge(veri_wk_eligble, allacts.wk.total,by.x="verified.week",by="allacts.week1", all.x=TRUE,all.y=TRUE)
+veri_wk_activie <- merge(veri_wk_activie, dtdestroy.wk.total,by.x="verified.week",by="dtdestroy.week", all.x=TRUE,all.y=TRUE)
+veri_wk_activie <- merge(veri_wk_activie, wdconsent.wk.total,by.x="verified.week",by="wdconsent.week", all.x=TRUE,all.y=TRUE)
+
+veri_wk_activie <- filter(veri_wk_activie,verified.week.date>0) %>% 
+  mutate(verified.week.date=as_date(ifelse(is.na(verified.week.date),as_date(recrstart.date)+dweeks(verified.week-1)+days(5),verified.week.date)))
+
+recr_veri_wk <-  merge(recrui_wk_verified,veri_wk_activie, by.x=c("recruit.week","total_verifieds","verified_time.max"),by.y=c("verified.week","total_verifieds","verified_time.max"),all.x=TRUE,all.y=TRUE)
+
+##to plot the time trend of invitation, verified, and blood+surveys by week
+vars <- c("active_recruits", "total_verifieds","total_eligible","total_dtdestroy","total_wdconsent","total_allacts")
+recr_veri_act <- recr_veri_wk %>% select(recruit.week,recruit.week.date,all_of(vars))  %>% 
+  mutate((across(all_of(vars),~replace_na(., 0))),
+         new.refwd.rate=ifelse(!is.na(total_wdconsent) & active_recruits !=0, 1000*total_wdconsent/active_recruits,0),
+         total_dtdestroy.cum=cumsum(total_dtdestroy),
+         total_wdconsent.cum=cumsum(total_wdconsent),
+         total_verified.cum =cumsum(total_verifieds))
+
+recr_veri_act_wk <- melt(recr_veri_act[,c("recruit.week","recruit.week.date","active_recruits", "total_verifieds","total_allacts")],#id.vars="Site", 
+     measure.vars=c("active_recruits", "total_verifieds","total_allacts"), variable.name="Verified_type",
+     value.name="Verified_Activities.new") %>% 
+  mutate(verified.activities=case_when(Verified_type =="active_recruits" ~ "Invitations", 
+                                       Verified_type =="total_verifieds" ~ "Verified", 
+                                       Verified_type =="total_allacts" ~ "Survey+Blood"),
+         Verified_Activities_n1 = ifelse(Verified_type =="active_recruits",Verified_Activities.new*0.1, Verified_Activities.new)) %>%
+  arrange(verified.activities)
+
+recr_veri_act_wk$verified.activities <- factor(recr_veri_act_wk$verified.activities, 
+                                             levels=c("Verified","Survey+Blood","Invitations"))
+tapply(recr_veri_act_wk$Verified_Activities.new,recr_veri_act_wk$Verified_type,max)
+
+max_y0 <- max(recr_veri_act_wk$Verified_Activities_n1)
+breaks0 <- seq(0,100*round(max_y0/100,0),100)
+##Amelia's comments: 
+# -Change the left y axis to state '# Individuals Verified or Completed Study Activities'
+# -The x-axis isn't consistent on the site ones, please have it match the overall one with the dates showing biweekly and count markers per week
+# -Please update the end of the x axis for all plots so that the end date is not in the future, it creates a drop off in the time trend. In the future please make sure all time trend graphs don't do this.
+# -Remove key titles 'Baseline Study Activities' and 'Verified Activities' , it's not needed
+# -Make the key consistent across all plots with it going left to right: Verified, Survey+Blood, Invitations
+
+Fig4.timetrend <- ggplot(recr_veri_act_wk,aes(y=Verified_Activities_n1,x=as.Date(recruit.week.date),color=verified.activities)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("blue","purple","lightblue"), name="",
+                    labels=c("Verified","Survey+Blood","Invitations"))+
+  scale_y_continuous(name="# Individuals Verified or \nCompleted Study Activities", limits=c(0,max_y0),breaks=breaks0,labels = scales::label_comma(),sec.axis = sec_axis( ~ . *100 , name = "# Invitations",breaks=100*breaks0,labels = scales::label_comma(),)) +
+  coord_cartesian(ylim =c(0,max_y0)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Weekly Counts of Enrollment through Study Activity Completion \nthrough", currentDate,"Overall",sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black"),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  ) 
+
+##refusal and withdrawal rate #request67
+##Kaitlyn's comments: updated request 67 Sep. 15, 2023
+
+# We would actually like to remove the rate of cases/invitations off of the graph completely.
+# We would like to also remove the right y-axis.
+# The label on the left y-axis could read "# of withdrawals and data destruction requests".
+# For the orange curve, can the label say "Withdrawals only"? And for the red curve "Data destruction only"?
+
+# We would like to add 3 cumulative plots as well:
+# The x axis would be time, the y axis would be the # of cumulative withdrawals and data destruction requests.
+# On this plot, we would like to see two trend lines. One for (#of withdrawals/# verified participants), the second for (#of data destructions/#verified participants).
+# 
+# We would like 3 of these plots total, one plot for all sites combined and then 2 additional plots for 2 groups of sites. Group 1 would be the KPs and University of Chicago. Group 2 would be the remaining four sites, HP, HFH, SF, MF.
+# 
+# All of these plots could be moved down to after Table 33 and before Table 34.
+# All of these plots could be moved down to after Table 33 and before Table 34.
+
+###Request is updated on Sep. 25, 2023:
+# For the cumulative plots, we would like four things to be shown:
+# 
+# The cumulative withdrawals as shown by the left y axis
+# The cumulative data destructions as shown by the left y axis
+# One trend line for withdrawals/consented participants (regardless of verification status). This can be per 1000 for the scale on the right y axis.
+# One trend line for data destructions/consented participants (regardless of verification status). This can be per 1000 for the scale on the right y axis.
+# Then this would prompt title changes for the three cumulative plots to say "by Number of Consented Participants" instead of "by Number of Verified Participants"
+# We also have some feedback just to clean these up a bit.
+# 
+# In both the weekly and cumulative plots, on the left y axis "And" can be lowercase and changed to "and"
+# In both the weekly and cumulative plots, in the legend, instead of "Data Destruction Only" can these labels read "Data Destructions"? We realized this would be more accurate.
+# In both the weekly and cumulative plots, could you change the yellow color that is being used for "withdrawals only" to something darker, maybe blue? The yellow may not come across well on presentations.
+# For the cumulative plots, can the colors used for withdrawals and data destructions carry over from the weekly plots? If we make the "withdrawals only" in the weekly plots blue (from comment 8 above), can this also be blue in the cumulative plots? and then if the "data destructions" are red in the weekly plots, can these be red in the cumulative plots? And then two other dark colors should be fine for the remaining two trend lines in the cumulative plots.
+# In the cumulative plots, in the legend, can you remove the "#" from the labels for both trend lines, so they now read "Withdrawals per 1K Consented Participants" and "Data Destructions per 1K Consented Participants"
+# In the cumulative plots, can you also remove the "#" from the right y axis, so this now reads "Withdrawals/Data Destructions per 1K Consented"
+
+break2 <- seq(0,max(recr_veri_act$total_wdconsent),2)
+plot.data <- recr_veri_act %>%
+    gather(refwd_invite,value, total_dtdestroy,total_wdconsent #,new.refwd.rate
+           ) %>% select(recruit.week,recruit.week.date,active_recruits,refwd_invite,value) %>% 
+  mutate(type=case_when(#refwd_invite=="new.refwd.rate" ~"# Withdrawal per 1K invitations",
+                        refwd_invite=="total_wdconsent" ~"Withdrawals Only",
+                        refwd_invite=="total_dtdestroy" ~"Data Destruction Only"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destruction Only"))) %>% 
+ggplot(aes(y=value,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("gold","red"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destruction Only"))+
+  scale_y_continuous(name="# of Withdrawals And \nData Destruction Qequests",limits=c(0,max(recr_veri_act$total_wdconsent)),breaks=break2)+ #limits=c(0,10*round(max(recr_veri_act$total_wdconsent/10),0)),breaks=break2,sec.axis = sec_axis( ~ . /2  , name = "# Withdrawal per 1K invitations",breaks=break2/2)
+                      
+  coord_cartesian(ylim =c(0,max(recr_veri_act$total_wdconsent))) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Weekly Counts of Withdrawals and Data Destruction Requests \nThrough", currentDate,"Overall",sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  ) 
+ #print(plot.data)
+ 
+###by site
+recruit.wk.active.site <- veri_resp[which(veri_resp$d_512820379==486306141),] %>% arrange(site,recruit.week) %>%
+  group_by(site,recruit.week,recruit.week.date) %>%
+  dplyr::summarize(active_recruits=n(),
+                   recruitdate_max=max(recru_time,rm.na=T))
+
+verified.wk.active.site <- veri_resp[which(veri_resp$d_821247024 == 197316935 & veri_resp$d_512820379==486306141),] %>% 
+  arrange(site,verified.week) %>% group_by(site,verified.week,verified.week.date) %>%
+  dplyr::summarize(active_verifieds=n(),
+                   verified_activetime.max=max(verified_time,rm.na=T))
+
+verified.wk.total.site <- veri_resp[which(veri_resp$d_821247024 == 197316935),] %>% arrange(site,verified.week) %>% 
+  group_by(site,verified.week,verified.week.date) %>%
+  dplyr::summarize(total_verifieds=n(),
+                   verified_time.max=max(verified_time,rm.na=T))
+
+verified.all.site <- merge(verified.wk.total.site,verified.wk.active.site, by.x=c("site","verified.week","verified.week.date"), by.y=c("site","verified.week","verified.week.date"),all.y=TRUE,all.x=TRUE)
+recrui_wk_verified.site <- merge(recruit.wk.active.site,verified.all.site, by.x=c("site","recruit.week","recruit.week.date"),by.y=c("site","verified.week","verified.week.date"),all.y=TRUE,all.x=TRUE)
+recrui_wk_verified.site <- recrui_wk_verified.site %>% mutate_at(c("active_recruits","active_verifieds","total_verifieds"),~replace_na(., 0))
+
+recrui_wk_verified.site <- recrui_wk_verified.site %>% 
+  mutate(passive_verifieds = total_verifieds-active_verifieds,
+         total_recruits = total_verifieds + active_recruits - active_verifieds)
+
+
+allacts.wk.total.site <- filter(veri_act,allacts1==353358909) %>% arrange(site,allacts.week1,verified.week) %>%
+  group_by(site,allacts.week1)%>%
+  dplyr::summarize(total_allacts=n(),
+                   allacts.time.max=max(allacts.time1,rm.na=T))
+
+dtdestroy.wk.total.site <- filter(veri_act,DestroyDataVer ==353358909) %>% arrange(site,dtdestroy.week) %>% 
+  group_by(site,dtdestroy.week)%>%
+  dplyr::summarize(total_dtdestroy=n())
+
+wdconsent.wk.total.site <- filter(veri_act,WdConsentVer ==353358909 & !is.na(wdconsent.week)) %>% arrange(site,wdconsent.week) %>% 
+  group_by(site,wdconsent.week)%>%
+  dplyr::summarize(total_wdconsent=n())
+
+
+recrui_wk_verified1.site <- merge(recrui_wk_verified.site, allacts.wk.total.site,by.x=c("site","recruit.week"),by=c("site","allacts.week1"), all.x=TRUE,all.y=TRUE)
+recrui_wk_verified1.site <- merge(recrui_wk_verified1.site, dtdestroy.wk.total.site,by.x=c("site","recruit.week"),by=c("site","dtdestroy.week"), all.x=TRUE,all.y=TRUE)
+recrui_wk_verified1.site <- merge(recrui_wk_verified1.site, wdconsent.wk.total.site,by.x=c("site","recruit.week"),by=c("site","wdconsent.week"), all.x=TRUE,all.y=TRUE)
+
+vars0 <- c("active_recruits","total_verifieds","total_dtdestroy","total_wdconsent","total_allacts")
+
+
+recrui_wk_verified1.site <- recrui_wk_verified1.site %>% 
+  mutate_at(vars0,~replace_na(., 0)) %>%
+  mutate(recruit.week.date = as.Date(ifelse(is.na(recruit.week.date), recrstart.date + days(2)+dweeks(recruit.week-1),recruit.week.date)),
+            Week.Starting = recruit.week.date - days(6),
+            #new.refwd.rate=ifelse(!is.na(total_wdconsent) & active_recruits !=0, 1000*total_wdconsent/active_recruits,0), 
+         KPgroups=(ifelse(grepl("Kaiser|Chicago", site), 1, 0)))
+
+   dt_all <- melt(recrui_wk_verified1.site[,c("site","recruit.week.date","active_recruits","total_verifieds", "total_allacts")],id.vars=c("site","recruit.week.date"),
+               measure.vars=c("active_recruits","total_verifieds", "total_allacts"), variable.name="Verified_type",
+               value.name="Verified_Activities.new") %>% 
+    mutate(verified.activities=case_when(Verified_type =="active_recruits" ~ "Invitations",
+                                         Verified_type =="total_verifieds" ~ "Verified", 
+                                         Verified_type =="total_allacts" ~ "Survey+Blood"),
+           Verified_Activities_n1 = ifelse(Verified_type =="active_recruits",Verified_Activities.new*0.1, Verified_Activities.new)) %>%
+    arrange(site,verified.activities)
+  
+  dt_all$verified.activities <- factor(dt_all$verified.activities, 
+                                     levels=c("Verified","Survey+Blood","Invitations"))
+  
+   plot.act <- list()
+   plot.ref <- list()
+  for (i in 1:9){
+    s <- levels(veri_resp$site)[i]
+
+      #a merged plots (of two plots above)
+    dt.combo<- filter(dt_all, site==s & as.Date(recruit.week.date) < currentDate)
+    
+    dt.combo$verified.activities <- factor(dt.combo$verified.activities, 
+                                           levels=c("Verified","Survey+Blood","Invitations"))
+    max_y0 <- 10*ceiling(max(dt.combo$Verified_Activities_n1/10))
+    break_int0 <- 10*round(max_y0/100,0)
+    break_y0 <- seq(0,10*round(max_y0/10,1),break_int0)
+    
+   
+    
+    act.plot <- ggplot(dt.combo,mapping=aes(y=Verified_Activities_n1,x=as.Date(recruit.week.date),color=verified.activities)) + geom_line() + geom_point()+
+      scale_color_manual(values = c("lightblue","blue","purple"), name="",
+                         labels=(c("Verified","Survey+Blood","Invitations")))+
+      scale_y_continuous(name="# Individuals Verified or \nCompleted Study Activities", limits=c(0,max_y0),breaks=break_y0, labels = scales::label_comma(), sec.axis = sec_axis( ~ . *10 , name = "# Invitations",breaks=10*break_y0,labels = scales::label_comma())) +
+  coord_cartesian(ylim =c(0,max_y0)) +
+      scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+      ggtitle(paste("Weekly Counts of Enrollment through Study Activity Completion \nthrough", currentDate,s ,sep=" "))+
+      theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+             axis.title.y = element_text(size = 14, face = "bold",color="black"),
+             plot.title = element_text(face="bold", size=16),
+             # Remove panel border
+             panel.border = element_blank(),  
+             # Remove panel grid lines
+             panel.grid.major = element_blank(),
+             panel.grid.minor = element_blank(),
+             # Remove panel background
+             panel.background = element_blank(),
+             # Add axis line
+             axis.line = element_line(colour = "grey") ,
+             ##put the legend in the plot
+             legend.position = "bottom"
+      ) 
+    print(act.plot)
+    plot.act[[i]] <- act.plot
+ 
+   #  #refusal& withdrawal, rate plot by site  
+   # max_ys <- ceiling(max(recrui_wk_verified1.site[which(recrui_wk_verified1.site$site==s),c("total_wdconsent","new.refwd.rate")])) 
+   # if(max_ys >500) {
+   #   break2.s <- seq(10*round(max_ys/100,0),10*round(max_ys/10,1),10*round(max_ys/100,0))
+   #   a <- 100
+   #   } else 
+   #   {break2.s <- seq(ceiling(max_ys/10),10*ceiling(max_ys/10),ceiling(max_ys/10))
+   #     a <- 1}
+   
+#    plot.data.site <- filter(recrui_wk_verified1.site,site==s & as.Date(recruit.week.date) < currentDate) %>% 
+#      gather(refwd_invite,value, total_dtdestroy,total_wdconsent,new.refwd.rate) %>% select(recruit.week,recruit.week.date,active_recruits,refwd_invite,value) %>% 
+#   mutate(type=case_when(refwd_invite=="new.refwd.rate" ~"# withdrawal per 1K invitations",
+#                         refwd_invite=="total_wdconsent" ~"# Withdraw consent",
+#                         refwd_invite=="total_dtdestroy" ~"# request data destroyed"),
+#          type = factor(type,levels=c("# request data destroyed","# Withdraw consent","# withdrawal per 1K invitations")),
+#          value.new = ifelse(refwd_invite=="new.refwd.rate", value/a, value)) %>% 
+# ggplot(aes(y=value.new,x=as.Date(recruit.week.date),color=type)) + 
+#   geom_line() +  geom_point() + scale_color_manual(values = c("red","orange","green"), 
+#                      name="Refusal Withdrawal vs Invites" ,labels=c("# request data destroyed","# Withdraw consent","# withdrawal per 1K invitations"))+
+#   scale_y_continuous(name="# of Participants Refusal, Requested Data Destroyed", limits=c(0,max_ys/a),breaks=break2.s/a,sec.axis = sec_axis(~ .*a, name = "# withdrawal per 1K invitations",breaks=break2.s)) +
+ 
+ max_ys <- ceiling(max(recrui_wk_verified1.site$total_wdconsent[which(recrui_wk_verified1.site$site==s)])) 
+ break2.s <- seq(0,max_ys,1)
+                 
+   plot.data.site <- filter(recrui_wk_verified1.site,site==s & as.Date(recruit.week.date) < currentDate) %>% 
+     gather(refwd_invite,value, total_dtdestroy,total_wdconsent) %>% select(recruit.week,recruit.week.date,active_recruits,refwd_invite,value) %>% 
+  mutate(type=case_when(#refwd_invite=="new.refwd.rate" ~"# withdrawal per 1K invitations",
+                        refwd_invite=="total_wdconsent" ~"Withdrawals Only",
+                        refwd_invite=="total_dtdestroy" ~"Data Destruction Only"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destruction Only")),
+         value.new = ifelse(refwd_invite=="new.refwd.rate", value/a, value)) %>% 
+ggplot(aes(y=value.new,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("gold","red"), 
+                     name="" ,labels=c("Withdrawals Only","Data Destruction Only"))+
+  scale_y_continuous(name="# of Withdrawals And \nData Destruction Requests", limits=c(0,max_ys),breaks=break2.s, #sec.axis = sec_axis(~ .*a, name = "# withdrawal per 1K invitations",breaks=break2.s)
+                     ) +     
+  coord_cartesian(ylim =c(0,max_ys)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Weekly Counts of Withdrawals and Data Destruction Request \nthrough", currentDate,s,sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  )
+ print(plot.data.site)
+ plot.ref[[i]] <- plot.data.site
+  }
+   
+ # 3 cumulative plots as well for consented participants (updated Sep. 25, 2023):
+# The x axis would be time, the y axis would be the # of cumulative withdrawals and data destruction requests.
+# On this plot, we would like to see two trend lines. One for (#of withdrawals/# verified participants), the second for (#of data destructions/#verified participants).
+# 
+# We would like 3 of these plots total, one plot for all sites combined and then 2 additional plots for 2 groups of sites. Group 1 would be the KPs and University of Chicago. Group 2 would be the remaining four sites, HP, HFH, SF, MF.
+
+recr_consent <- filter(data,d_919254129 == 353358909) %>% 
+  mutate(consent_time = ymd_hms(d_454445267),
+         consent_wk = ifelse(!is.na(consent_time),ceiling(as.numeric(difftime(as_date(consent_time)+days(5),as_date(recrstart.date),units="days"))/7),NA)) %>% group_by(consent_wk)%>%
+  dplyr::summarize(total_consent=n())
+
+recr_consent.dtdy <- filter(data,d_919254129 == 353358909 & d_747006172 == 353358909 & d_831041022 == 353358909) %>% 
+  mutate(dtdestroy.week = ifelse(!is.na(d_269050420),ceiling(as.numeric(difftime(as_date(ymd_hms(d_269050420)+days(5)),as_date(recrstart.date), units="days"))/7),NA))%>% group_by(dtdestroy.week)%>%
+  dplyr::summarize(total_dtdestroy=n())
+
+recr_consent.rfwd <- filter(data,d_919254129 == 353358909 & d_747006172 == 353358909 & d_831041022 != 353358909) %>% 
+  mutate(wdconsent.week = ifelse(!is.na(d_659990606),ceiling(as.numeric(difftime(as_date(ymd_hms(d_659990606)+days(5)),as_date(recrstart.date), units="days"))/7),NA)) %>% group_by(wdconsent.week) %>% 
+  dplyr::summarize(total_wdconsent=n())
+
+recr_consent_rfdd <- merge(recr_veri_act[,c("recruit.week","recruit.week.date","total_verifieds")],recr_consent,by.x="recruit.week",by.y="consent_wk", all.x = T, all.y=T)
+ recr_consent_rfdd <- merge(recr_consent_rfdd,recr_consent.rfwd,by.x="recruit.week",by.y="wdconsent.week", all.x = T, all.y=T) 
+ recr_consent_rfdd <- merge(recr_consent_rfdd,recr_consent.dtdy,by.x="recruit.week",by.y="dtdestroy.week", all.x = T, all.y=T)  
+vars.rfwd <- c("total_consent","total_dtdestroy","total_wdconsent") 
+recr_consent_rfdd <- recr_consent_rfdd %>% mutate((across(all_of(vars.rfwd),~replace_na(., 0)))) %>%
+  mutate(across(all_of(vars.rfwd), ~as.numeric(.)),
+         #new.refwd.rate=ifelse(!is.na(total_wdconsent) & active_recruits !=0, 1000*total_wdconsent/active_recruits,0),
+         total_dtdestroy.cum=cumsum(total_dtdestroy),
+         total_wdconsent.cum=cumsum(total_wdconsent),
+         total_consent.cum =cumsum(total_consent),
+         ratio_wd_consent = ifelse(total_consent.cum ==0, 0, 10000*total_wdconsent.cum/total_consent.cum),
+         ratio_ddest_consent = ifelse(total_dtdestroy.cum == 0, 0, 10000*total_dtdestroy.cum/total_consent.cum))
+
+  
+break2 <- seq(0,max(recr_consent_rfdd$total_wdconsent),1)
+plot.data <- recr_consent_rfdd %>%
+    gather(refwd_consent,value, total_dtdestroy,total_wdconsent #,new.refwd.rate
+           ) %>% select(recruit.week,recruit.week.date,total_consent,refwd_consent,value) %>% 
+  mutate(type=case_when(#refwd_invite=="new.refwd.rate" ~"# Withdrawal per 1K invitations",
+                        refwd_consent=="total_wdconsent" ~"Withdrawals Only",
+                        refwd_consent=="total_dtdestroy" ~"Data Destructions"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destructions"))) %>% 
+ggplot(aes(y=value,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destructions"))+
+  scale_y_continuous(name="# of Withdrawals and \nData Destruction  Requests",limits=c(0,max(recr_veri_act$total_wdconsent)),breaks=break2)+ #limits=c(0,10*round(max(recr_veri_act$total_wdconsent/10),0)),breaks=break2,sec.axis = sec_axis( ~ . /2  , name = "# Withdrawal per 1K invitations",breaks=break2/2)
+                      
+  coord_cartesian(ylim =c(0,max(recr_veri_act$total_wdconsent))) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Weekly Counts of Withdrawals and Data Destruction Requests \nThrough", currentDate,"Overall",sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  ) 
+
+ max_y.refwd <- 10*ceiling(max(recr_consent_rfdd$total_wdconsent.cum)/10)
+ break.rfwd <- seq(0,max_y.refwd,ceiling(max(recr_consent_rfdd$total_wdconsent.cum)/10))
+ 
+ rfwd.cum.plot <- recr_consent_rfdd %>% 
+   gather(refwd_type,value.cum, total_dtdestroy.cum,total_wdconsent.cum,ratio_wd_consent,ratio_ddest_consent) %>% 
+           select(recruit.week,recruit.week.date,total_consent,refwd_type,value.cum) %>% 
+  mutate(type=case_when(refwd_type=="ratio_wd_consent" ~"Withdrawals per 1K Consented Participants",
+                        refwd_type=="ratio_ddest_consent" ~"Data Destructions per 1K Consented Participants",
+                        refwd_type=="total_wdconsent.cum" ~"Withdrawals Only",
+                        refwd_type=="total_dtdestroy.cum" ~"Data Destructions"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants"))) %>% 
+ggplot(aes(y=value.cum,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red","darkorange","darkred"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destruction per 1K Consented Participants"))+
+  scale_y_continuous(name="# Withdrawals and/ \nData Destruction Requests", limits=c(0,max_y.refwd),breaks=break.rfwd,sec.axis = sec_axis( ~ . /10  , name = "Withdrawals/Data Destructions per 1K Consented",breaks=break.rfwd/10,labels = scales::number_format(accuracy = 0.1)))+
+     #) limits=c(0,10*round(max(recr_veri_act$total_wdconsent/10),0)),breaks=break2                
+  coord_cartesian(ylim =c(0,max_y.refwd)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Cumulative Withdrawals and Data Destructions \nby Number of Consented Participants Through", currentDate,"Overall",sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  )  
+ 
+##by site
+recr_consent.site <- filter(data,d_919254129 == 353358909) %>% 
+  mutate(consent_time = ymd_hms(d_454445267),
+         consent_wk = ifelse(!is.na(consent_time),ceiling(as.numeric(difftime(as_date(consent_time)+days(5),as_date(recrstart.date),units="days"))/7),NA)) %>% group_by(site,consent_wk)%>%
+  dplyr::summarize(total_consent=n())
+
+recr_consent.dtdy.site <- filter(data,d_919254129 == 353358909 & d_747006172 == 353358909 & d_831041022 == 353358909) %>% 
+  mutate(dtdestroy.week = ifelse(!is.na(d_269050420),ceiling(as.numeric(difftime(as_date(ymd_hms(d_269050420)+days(5)),as_date(recrstart.date), units="days"))/7),NA))%>% group_by(site,dtdestroy.week)%>%
+  dplyr::summarize(total_dtdestroy=n())
+
+recr_consent.rfwd.site <- filter(data,d_919254129 == 353358909 & d_747006172 == 353358909 & d_831041022 != 353358909) %>% 
+  mutate(wdconsent.week = ifelse(!is.na(d_659990606),ceiling(as.numeric(difftime(as_date(ymd_hms(d_659990606)+days(5)),as_date(recrstart.date), units="days"))/7),NA)) %>% group_by(site,wdconsent.week) %>% 
+  dplyr::summarize(total_wdconsent=n())
+
+recr_consent_rfdd.site <- merge(recrui_wk_verified.site[,c("site","recruit.week","recruit.week.date","total_verifieds")],recr_consent.site,by.x=c("site","recruit.week"),by.y=c("site","consent_wk"), all.x = T, all.y=T)
+ recr_consent_rfdd.site <- merge(recr_consent_rfdd.site,recr_consent.rfwd.site,by.x=c("site","recruit.week"),by.y=c("site","wdconsent.week"), all.x = T, all.y=T) 
+ recr_consent_rfdd.site <- merge(recr_consent_rfdd.site,recr_consent.dtdy.site,by.x=c("site","recruit.week"),by.y=c("site","dtdestroy.week"), all.x = T, all.y=T)  
+ 
+ 
+vars.rfwd <- c("total_consent","total_dtdestroy","total_wdconsent") 
+recr_consent_rfdd.site <- recr_consent_rfdd.site %>% mutate((across(all_of(vars.rfwd),~replace_na(., 0)))) %>%
+  mutate(across(all_of(vars.rfwd), ~as.numeric(.)),
+         #new.refwd.rate=ifelse(!is.na(total_wdconsent) & active_recruits !=0, 1000*total_wdconsent/active_recruits,0),
+         total_dtdestroy.cum=cumsum(total_dtdestroy),
+         total_wdconsent.cum=cumsum(total_wdconsent),
+         total_consent.cum =cumsum(total_consent),
+         ratio_wd_consent = ifelse(total_consent.cum ==0, 0, 1000*total_wdconsent.cum/total_consent.cum),
+         ratio_ddest_consent = ifelse(total_dtdestroy.cum == 0, 0, 1000*total_dtdestroy.cum/total_consent.cum),
+         recruit.week.date = as.Date(ifelse(is.na(recruit.week.date), recrstart.date + days(2)+dweeks(recruit.week-1),recruit.week.date)))
+ 
+ 
+plot.const <- list()
+for (i in 1:9){
+    s <- levels(veri_resp$site)[i]
+    max_ys <- ceiling(max(recr_consent_rfdd.site$total_wdconsent[which(recr_consent_rfdd.site$site==s)])) 
+    break2.s <- seq(0,max_ys,1)
+    
+    plot.consent.site <- filter(recr_consent_rfdd.site,site==s & as.Date(recruit.week.date) < currentDate) %>% 
+        gather(refwd_consent,value, total_dtdestroy,total_wdconsent) %>% select(recruit.week,recruit.week.date,total_verifieds,refwd_consent,value) %>% 
+        mutate(type=case_when(#refwd_invite=="new.refwd.rate" ~"# withdrawal per 1K invitations",
+            refwd_consent=="total_wdconsent" ~"Withdrawals Only",
+            refwd_consent=="total_dtdestroy" ~"Data Destructions"),
+            type = factor(type,levels=c("Withdrawals Only","Data Destructions"))) %>% 
+        ggplot(aes(y=value,x=as.Date(recruit.week.date),color=type)) + 
+        geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red"), 
+                                                         name="" ,labels=c("Withdrawals Only","Data Destructions"))+
+        scale_y_continuous(name="# of Withdrawals and \nData Destruction Requests", limits=c(0,max_ys),breaks=break2.s, #sec.axis = sec_axis(~ .*a, name = "# withdrawal per 1K invitations",breaks=break2.s)
+        ) +     
+        coord_cartesian(ylim =c(0,max_ys)) +
+        scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+        ggtitle(paste("Weekly Counts of Withdrawals and Data Destruction Requests \nThrough", currentDate,s,sep=" "))+
+        theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+               axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+               plot.title = element_text(face="bold", size=16),
+               # Remove panel border
+               panel.border = element_blank(),  
+               # Remove panel grid lines
+               panel.grid.major = element_blank(),
+               panel.grid.minor = element_blank(),
+               # Remove panel background
+               panel.background = element_blank(),
+               # Add axis line
+               axis.line = element_line(colour = "grey") ,
+               ##put the legend in the plot
+               legend.position = "bottom"
+        )
+    print(plot.consent.site)
+    plot.const[[i]] <- plot.consent.site
+}
+
+ ##non KP sites:
+ recr_consent.KP <- recr_consent_rfdd.site %>% 
+  mutate(KPgroups=(ifelse(grepl("Kaiser|Chicago", site), 1, 0))) %>% 
+   select(site, KPgroups, recruit.week,recruit.week.date,total_verifieds,total_consent,total_wdconsent,total_dtdestroy) %>%  group_by(KPgroups,recruit.week,recruit.week.date) %>%
+  dplyr::summarize(total_consent=sum(total_consent),
+                 total_dtdestroy=sum(total_dtdestroy),
+                 total_wdconsent=sum(total_wdconsent),
+                 total_verifieds=sum(total_verifieds,na.rm=T)) %>% group_by(KPgroups) %>% 
+   mutate(total_dtdestroy.cum.kp=cumsum(total_dtdestroy),
+       total_wdconsent.cum.kp=cumsum(total_wdconsent),
+       total_verified.cum.kp=cumsum(total_verifieds),
+       total_consent.cum.kp=cumsum(total_consent),
+       ratio_wd_consent = ifelse(cumsum(total_consent) == 0, 0, 1000*total_wdconsent.cum.kp/cumsum(total_consent)),
+       ratio_ddest_consent = ifelse(cumsum(total_consent) == 0, 0, 1000*total_dtdestroy.cum.kp/cumsum(total_consent))) 
+ 
+
+for (KP in c(0,1)){
+  dt <- filter(recr_consent.KP,KPgroups==KP) 
+  
+  note <- if(KP==1){
+    "KPs & UChicago"
+    }else{
+             "HP, HFH, SF, MF" 
+     }
+
+#print(note)
+ 
+   max_y.refwd.kp <- 10*ceiling(max(dt$total_wdconsent.cum.kp)/10)
+ break.rfwd.kp <- seq(0,max_y.refwd,ceiling(max(dt$total_wdconsent.cum.kp)/10))
+ 
+ rfwd.cum.plot.kp <- dt %>%  gather(refwd_type,value.cum, total_dtdestroy.cum.kp,total_wdconsent.cum.kp,ratio_wd_consent,ratio_ddest_consent) %>% 
+           select(KPgroups,recruit.week,recruit.week.date,refwd_type,value.cum) %>% 
+  mutate(type=case_when(refwd_type=="ratio_wd_consent" ~"Withdrawals per 1K Consented Participants",
+                        refwd_type=="ratio_ddest_consent" ~"Data Destructions per 1K Consented Participants",
+                        refwd_type=="total_wdconsent.cum.kp" ~"Withdrawals Only",
+                        refwd_type=="total_dtdestroy.cum.kp" ~"Data Destructions"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants"))) %>%
+ggplot(aes(y=value.cum,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red","darkorange","darkred"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants")) +
+  scale_y_continuous(name="# Withdrawals and \nData Destruction Requests", limits=c(0,max_y.refwd.kp),
+                     breaks=c(0,break.rfwd.kp),sec.axis = sec_axis( ~ .  , name = "Withdrawals/Data Destructions \nper 1K Consented",breaks=c(0,break.rfwd.kp),labels = scales::number_format(accuracy = 0.1))) +
+   coord_cartesian(ylim =c(0,max_y.refwd.kp)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Cumulative Withdrawals and Data Destructions \nby Number of Consented Participants Through\n", currentDate,note,sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  )  
+print(rfwd.cum.plot.kp)
+kp_refwd.plots[[i]] <- rfwd.cum.plot.kp
+}
+ 
+refwd.cumplot <- function(dt,note){
+   max_y.refwd.kp <- 10*ceiling(max(dt$total_wdconsent.cum.kp)/10)
+   break.rfwd.kp <- seq(0,max_y.refwd,ceiling(max(dt$total_wdconsent.cum.kp)/10))
+   
+   
+   rfwd.cum.plot.kp <- dt %>%  gather(refwd_type,value.cum, total_dtdestroy.cum.kp,total_wdconsent.cum.kp,ratio_wd_consent,ratio_ddest_consent) %>% 
+   select(KPgroups,recruit.week,recruit.week.date,refwd_type,value.cum) %>% 
+   mutate(type=case_when(refwd_type=="ratio_wd_consent" ~"Withdrawals per 1K Consented Participants",
+                         refwd_type=="ratio_ddest_consent" ~"Data Destructions per 1K Consented Participants",
+                         refwd_type=="total_wdconsent.cum.kp" ~"Withdrawals Only",
+                         refwd_type=="total_dtdestroy.cum.kp" ~"Data Destructions"),
+          type = factor(type,levels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants"))) %>%
+   ggplot(aes(y=value.cum,x=as.Date(recruit.week.date),color=type)) + 
+   geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red","darkorange","darkred"), name="",
+                                                    #name="Withdrawals And Data Destruction" ,
+                                                    labels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants")) +
+   scale_y_continuous(name="# Withdrawals and \nData Destruction Requests", limits=c(0,max_y.refwd.kp),
+                      breaks=c(0,break.rfwd.kp),sec.axis = sec_axis( ~ .  , name = "Withdrawals/Data Destructions \nper 1K Consented",breaks=c(0,break.rfwd.kp),labels = scales::number_format(accuracy = 0.1))) +
+   coord_cartesian(ylim =c(0,max_y.refwd.kp)) +
+   scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+   ggtitle(paste("Cumulative Withdrawals and Data Destructions \nby Number of Consented Participants Through\n", currentDate,note,sep=" "))+
+   theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+          axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+          plot.title = element_text(face="bold", size=16),
+          # Remove panel border
+          panel.border = element_blank(),  
+          # Remove panel grid lines
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          # Remove panel background
+          panel.background = element_blank(),
+          # Add axis line
+          axis.line = element_line(colour = "grey") ,
+          ##put the legend in the plot
+          legend.position = "bottom"
+   )  
+ print(rfwd.cum.plot.kp)
+ }
 ```
 
 
@@ -2611,6 +3357,68 @@ verified_expect_bld.plot
 ```
 
 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.0'}
+#time trend of the activities of participants
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ Fig4.timetrend
+```
+ 
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.1'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #HP
+  print(plot.act[[1]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.2'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+   print(plot.act[[2]])
+#HFHS
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.3'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+   print(plot.act[[3]])
+ #MFH
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.4'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  print(plot.act[[4]])
+ #SF
+```
+ 
+```{r,eval=TRUE,echo=FALSE,fig.cap='Figure 4.5'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #UOC
+  print(plot.act[[5]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.6'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  #KPCO
+ print(plot.act[[6]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.7'}
+  knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  #KPGA
+  print(plot.act[[7]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.8'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #KPHI
+ print(plot.act[[8]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.9'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  #KPNW
+  print(plot.act[[9]])
+```
+
+
 ```{r, eval=TRUE,echo=FALSE}
 options(knitr.table.format = "latex")
 options(kableExtra.auto_format = FALSE)
@@ -2630,7 +3438,8 @@ Table7b_pro_pas %>% kable_styling(latex_options = "scale_down")
 
 Table8_profile  %>% kable_styling(latex_options = "scale_down")
 
-table9_verifiedtype %>% kable_styling(font_size = 9) %>% kable_styling(latex_options = "scale_down") %>%  footnote(general="KP sites not yet sending data for Manual Verification and Outreach category.",general_title = "Note:",footnote_as_chunk = T) %>% landscape() 
+table9_verifiedtype %>% kable_styling(font_size = 9) %>% kable_styling(latex_options = "scale_down") 
+#%>%  footnote(general="KP sites not yet sending data for Manual Verification and Outreach category.",general_title = "Note:",footnote_as_chunk = T) %>% landscape() 
 
 table10 %>% kable_styling(latex_options = "scale_down")
 
@@ -2668,17 +3477,226 @@ Srvbiospe.All%>% kable_styling(latex_options = c("scale_down")) %>% landscape()%
 #   cat("\n")}
 
  for (i in 1:5){print(Srvbiospe.site[[i]]  %>% kable_styling(latex_options = c("scale_down")) %>%  landscape()%>% footnote(general="In order of how the survey sections appear on MyConnect; BOH=Background and Overall Health (Module 1), LAW=Where You Live and Work (Module 4), MRE=Medications, Reproductive Health, Exercise, and Sleep (Module 2), and SAS=Smoking, Alcohol, and Sun Exposure (Module 3).", general_title = "Note:",footnote_as_chunk = T,threeparttable = T)) }
-# 
+ 
  for (i in 6:9){print(Srvbiospe.site[[i]]  %>% kable_styling(latex_options = c("scale_down")) %>%  landscape()  %>% footnote(general="In order of how the survey sections appear on MyConnect; BOH=Background and Overall Health (Module 1), LAW=Where You Live and Work (Module 4), MRE=Medications, Reproductive Health, Exercise, and Sleep (Module 2), and SAS=Smoking, Alcohol, and Sun Exposure (Module 3), Mouthwash collection is not yet available at KP sites.", general_title = "Note:",footnote_as_chunk = T,threeparttable = T))}
 
+```
 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.0'}
+ #knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+ print(plot.data)
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.1'}
+ #knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #HP
+  print(plot.const[[1]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.2'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+   print(plot.const[[2]])
+ #HFHS
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.3'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+   print(plot.const[[3]])
+ #MFH
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.4'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  print(plot.const[[4]])
+ #SF
+```
+ 
+```{r,eval=TRUE,echo=FALSE,fig.cap='Figure 5.5'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #UOC
+  print(plot.const[[5]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.6'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #KPCO
+ print(plot.const[[6]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.7'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #KPGA
+ print(plot.const[[7]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.8'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ #KPHI
+ print(plot.const[[8]])
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.9'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+  #KPNW
+  print(plot.const[[9]])
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5a.',results='asis'}
+  # for (i in 1:9){
+  #   s <- levels(veri_resp$site)[i]
+# 
+#    max_ys <- ceiling(max(recrui_wk_verified1.site[which(recrui_wk_verified1.site$site==s),c("total_wdconsent","new.refwd.rate")])) 
+#    if(max_ys >500) {
+#      break2.s <- seq(10*round(max_ys/100,0),10*round(max_ys/10,1),10*round(max_ys/100,0))
+#      a <- 100
+#      } else 
+#      {break2.s <- seq(ceiling(max_ys/10),10*ceiling(max_ys/10),ceiling(max_ys/10))
+#        a <- 1}
+   
+#  max_ys <- ceiling(max(recrui_wk_verified1.site$total_wdconsent[which(recrui_wk_verified1.site$site==s)])) 
+#  break2.s <- seq(1,max_ys+1,1)
+#                  
+#    plot.data.site <- filter(recrui_wk_verified1.site,site==s & as.Date(recruit.week.date) < currentDate) %>% 
+#      gather(refwd_invite,value, total_dtdestroy,total_wdconsent) %>% select(recruit.week,recruit.week.date,active_recruits,refwd_invite,value) %>% 
+#   mutate(type=case_when(#refwd_invite=="new.refwd.rate" ~"# withdrawal per 1K invitations",
+#                         refwd_invite=="total_wdconsent" ~"Withdrawals Only",
+#                         refwd_invite=="total_dtdestroy" ~"Data Destruction Only"),
+#          type = factor(type,levels=c("Withdrawals Only","Data Destruction Only")),
+#          value.new = ifelse(refwd_invite=="new.refwd.rate", value/a, value)) %>% 
+# ggplot(aes(y=value.new,x=as.Date(recruit.week.date),color=type)) + 
+#   geom_line() +  geom_point() + scale_color_manual(values = c("orange","red"), 
+#                      name=" " ,labels=c("Withdrawals Only","Data Destruction Only"))+
+#   scale_y_continuous(name="# of Withdrawals And \nData Destruction Qequests", limits=c(0,max_ys+1),breaks=break2.s, #sec.axis = sec_axis(~ .*a, name = "# withdrawal per 1K invitations",breaks=break2.s)
+#                      ) +     
+#   coord_cartesian(ylim =c(0,max_ys+1)) +
+#   scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+#   ggtitle(paste("Weekly Counts of Withdrawals and Rates by Invitations \nthrough", currentDate,s,sep=" "))+
+#   theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+#          axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+#          plot.title = element_text(face="bold", size=16),
+#          # Remove panel border
+#          panel.border = element_blank(),  
+#          # Remove panel grid lines
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          # Remove panel background
+#          panel.background = element_blank(),
+#          # Add axis line
+#          axis.line = element_line(colour = "grey") ,
+#          ##put the legend in the plot
+#          legend.position = "bottom"
+#   )
+#  print(plot.data.site)
+# 
+#   }
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.10'}
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+ print(rfwd.cum.plot)
+```
+ 
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.11'}
+
+  dt <- filter(recr_consent.KP,KPgroups==0) 
+  
+  note <-   "HP, HFH, SF, MF" 
+     
+
+ 
+#print(note)
+ max_y.refwd.kp <- 10*ceiling(max(dt$total_wdconsent.cum.kp)/10)
+ break.rfwd.kp <- seq(0,max_y.refwd,ceiling(max(dt$total_wdconsent.cum.kp)/10))
+ 
+ rfwd.cum.plot.kp <- dt %>%  gather(refwd_type,value.cum, total_dtdestroy.cum.kp,total_wdconsent.cum.kp,ratio_wd_consent,ratio_ddest_consent) %>% 
+           select(KPgroups,recruit.week,recruit.week.date,refwd_type,value.cum) %>% 
+  mutate(type=case_when(refwd_type=="ratio_wd_consent" ~"Withdrawals per 1K Consented Participants",
+                        refwd_type=="ratio_ddest_consent" ~"Data Destructions per 1K Consented Participants",
+                        refwd_type=="total_wdconsent.cum.kp" ~"Withdrawals Only",
+                        refwd_type=="total_dtdestroy.cum.kp" ~"Data Destructions"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants"))) %>%
+ggplot(aes(y=value.cum,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red","darkorange","darkred"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants")) +
+  scale_y_continuous(name="# Withdrawals and \nData Destruction Requests", limits=c(0,max_y.refwd.kp),
+                     breaks=c(0,break.rfwd.kp),sec.axis = sec_axis( ~ .  , name = "Withdrawals/Data Destructions \nper 1K Consented",breaks=c(0,break.rfwd.kp),labels = scales::number_format(accuracy = 0.1))) +
+   coord_cartesian(ylim =c(0,max_y.refwd.kp)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Cumulative Withdrawals and Data Destructions \nby Number of Consented Participants Through\n", currentDate,note,sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  )  
+print(rfwd.cum.plot.kp)
+```
+
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 5.12'}
+
+  dt <- filter(recr_consent.KP,KPgroups==1) 
+  
+  note <-   "KPs & UChicago"
+#print(note)
+ max_y.refwd.kp <- 10*ceiling(max(dt$total_wdconsent.cum.kp)/10)
+ break.rfwd.kp <- seq(0,max_y.refwd,ceiling(max(dt$total_wdconsent.cum.kp)/10))
+ 
+ rfwd.cum.plot.kp <- dt %>%  gather(refwd_type,value.cum, total_dtdestroy.cum.kp,total_wdconsent.cum.kp,ratio_wd_consent,ratio_ddest_consent) %>% 
+           select(KPgroups,recruit.week,recruit.week.date,refwd_type,value.cum) %>% 
+  mutate(type=case_when(refwd_type=="ratio_wd_consent" ~"Withdrawals per 1K Consented Participants",
+                        refwd_type=="ratio_ddest_consent" ~"Data Destructions per 1K Consented Participants",
+                        refwd_type=="total_wdconsent.cum.kp" ~"Withdrawals Only",
+                        refwd_type=="total_dtdestroy.cum.kp" ~"Data Destructions"),
+         type = factor(type,levels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants"))) %>%
+ggplot(aes(y=value.cum,x=as.Date(recruit.week.date),color=type)) + 
+  geom_line() +  geom_point() + scale_color_manual(values = c("darkblue","red","darkorange","darkred"), name="",
+                     #name="Withdrawals And Data Destruction" ,
+                     labels=c("Withdrawals Only","Data Destructions","Withdrawals per 1K Consented Participants","Data Destructions per 1K Consented Participants")) +
+  scale_y_continuous(name="# Withdrawals and \nData Destruction Requests", limits=c(0,max_y.refwd.kp),
+                     breaks=c(0,break.rfwd.kp),sec.axis = sec_axis( ~ .  , name = "Withdrawals/Data Destructions \nper 1K Consented",breaks=c(0,break.rfwd.kp),labels = scales::number_format(accuracy = 0.1))) +
+   coord_cartesian(ylim =c(0,max_y.refwd.kp)) +
+  scale_x_date(name="Date",limit=as.Date(c("2021-12-31",currentDate)),date_labels = "%y-%m-%d", date_breaks = "2 weeks",expand=c(0,0))  +
+  ggtitle(paste("Cumulative Withdrawals and Data Destructions \nby Number of Consented Participants Through\n", currentDate,note,sep=" "))+
+  theme( axis.text.x=element_text(angle=60, hjust=1), axis.title.x = element_text( size = 14, face = "bold") ,
+         axis.title.y = element_text(size = 14, face = "bold",color="black",angle=90),
+         plot.title = element_text(face="bold", size=16),
+         # Remove panel border
+         panel.border = element_blank(),  
+         # Remove panel grid lines
+         panel.grid.major = element_blank(),
+         panel.grid.minor = element_blank(),
+         # Remove panel background
+         panel.background = element_blank(),
+         # Add axis line
+         axis.line = element_line(colour = "grey") ,
+         ##put the legend in the plot
+         legend.position = "bottom"
+  )  
+print(rfwd.cum.plot.kp)
+           
+```
+
+\pagebreak
+
+```{r,echo=FALSE,error=FALSE,message=FALSE}
 # refuse.withdrawls_w2 <- refuse.withdrawls_w1[,c(1,2,8,9,3,4,6)]
 # colnames(refuse.withdrawls_w2) = c("Site","Refusal of Any Study Activity", "Refusal of All Study Activities","Revoked HIPAA  Authorization", "Withdraw Consent", "Data Destruction", "Total Consented Participants")
-# 
-# refuse.withdrawls_w2 %>% 
-#   knitr::kable("latex",caption='Table 34. Refusals and Withdrawals Among All Consented Participants', row.names=FALSE, format.args = list(big.mark = ","), col.names = linebreak(names(refuse.withdrawls_w2), align = "l"), align=c("l","l","l","l","l","l","l"), booktabs = TRUE, linesep = "") %>% kable_styling(latex_options = c("scale_down"),full_width = F) %>% add_indent(c(1:9)) %>% footnote(general='% of the Total Consented Participants by Site',  general_title = "Note:",footnote_as_chunk = T)
+ 
+ #refuse.withdrawls_w2 %>% 
+ #  knitr::kable("latex",caption='Table 34. Refusals and Withdrawals Among All Consented Participants', row.names=FALSE, format.args = list(big.mark = ","), col.names = linebreak(names(refuse.withdrawls_w2), align = "l"), align=c("l","l","l","l","l","l","l"), booktabs = TRUE, linesep = "") %>% kable_styling(latex_options = c("scale_down"),full_width = F) %>% add_indent(c(1:9)) %>% footnote(general='% of the Total Consented Participants by Site',  general_title = "Note:",footnote_as_chunk = T)
 
-tb_refwd %>% kable_styling(latex_options = c("scale_down"),full_width = F) %>% add_indent(c(1:9)) %>% footnote(general='% of the Total Consented Participants by Site',  general_title = "Note:",footnote_as_chunk = T)
+
+tb_refwd %>% kable_styling(latex_options = c("scale_down"),full_width = F)  %>% footnote(general='% of the Total Consented Participants by Site',  general_title = "Note:",footnote_as_chunk = T)
  
  knitr::kable(ref_wd_reasons_all1[,c(12,2:11)],caption='Table 35. Reasons for Refusal or Withdrawal Among Those That Requested',caption.short = "Reasons for Refusal/Withdrawl.", row.names=FALSE,align=c("l","c","c","c","c","c","c","c","c","c")) %>% kable_styling(latex_options = c("scale_down"))%>% add_indent(c(1:24)) %>%landscape() %>% footnote(general = c('Total counts of refusal and withdrawal reasons are not equal to the total numbers of refusal and withdrawal cases','Frequency %  is the counts  of refusal and withdrawal cases with Refusal and withdrawal reason out of the total numbers of refusal and withdrawal cases by site'),  general_title = "Note:",footnote_as_chunk = T)
 ```
@@ -2690,69 +3708,83 @@ tb_refwd %>% kable_styling(latex_options = c("scale_down"),full_width = F) %>% a
  incentive.eligible %>% kable_styling(font_size=9,latex_options = "scale_down")  
 #%>% footnote(general="University of Chicago Medicine has not sent incentive data yet to CCC",general_title = "Note: ",footnote_as_chunk = T)
 
- Eligible %>% kable_styling(latex_options = "scale_down") %>%  footnote(general="University of Chicago Medicine has not sent incentive data yet to CCC",footnote_as_chunk = T)
+ Eligible %>% kable_styling(latex_options = "scale_down")
+ #%>%  footnote(general="University of Chicago Medicine has not sent incentive data yet to CCC",footnote_as_chunk = T)
  
- colnames(table38_Tm_IncentIssued)[1] <-"Site"
- colnames(table38_Tm_IncentIssued)[9:10] = c("90 %", "95 %")
- knitr::kable(table38_Tm_IncentIssued, caption ='Table 38. Time From Incentive Eligible to Incentive Issued by NORC in Days', row.names=FALSE, digits=2, booktabs=T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"))  %>% kable_styling(latex_options = "scale_down")%>% landscape() %>% add_indent(c(1:8)) %>% footnote(general='For all sites except Chicago',footnote_as_chunk = T)
+ colnames(table38_Tm_IncentIssued.NORC)[1] <-"Site"
+ colnames(table38_Tm_IncentIssued.NORC)[9:10] = c("90 %", "95 %")
+ knitr::kable(table38_Tm_IncentIssued.NORC, caption ='Table 38. Time From Incentive Eligible to Incentive Issued by NORC in Days', row.names=FALSE, digits=2, booktabs=T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"))  %>% kable_styling(latex_options = "scale_down")%>% landscape() %>% add_indent(c(1:8)) %>% footnote(general='For all sites except Chicago',footnote_as_chunk = T)
+ 
+ #  colnames(table39_Tm_IncentIssued.UC)[1] <-"Site"
+ # colnames(table39_Tm_IncentIssued.UC)[9:10] = c("90 %", "95 %")
+ # knitr::kable(table39_Tm_IncentIssued.UC, caption ='Table 39. Time From Incentive Eligible to Incentive Issued by UChicago in Days', row.names=FALSE, digits=2, booktabs=T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"))  %>% kable_styling(latex_options = "scale_down")%>% landscape() %>% footnote(general='UChicago is currently doing cash payment only, no NORC giftcards',footnote_as_chunk = T)
+
+ Table39_UC <- Table39_UC %>% 
+   mutate(Day_2Issued =case_when(Day_Eligible2Issued %in% c("10+ days before incentive-eligible","10+ days after") ~ "10+",
+   Day_Eligible2Issued %in% c("1-9 days before","1-9 days after") ~ "1-9",
+   Day_Eligible2Issued %in% c("< 1 day before","< 1 day after incentive-eligible") ~ "<1",
+   Day_Eligible2Issued =="Total" ~"Total Participants with Incentive Issued"))
+ 
+
+knitr::kable(Table39_UC[,c(4,3)],caption ='Table 39. Time From Incentive Eligible to Incentive Issued by UChicago in Days', row.names=FALSE, digits=2, booktabs=T,col.names = c("Incentive Issued Time", "N (%)"), linesep = "", align=c("l", "c")) %>% column_spec(1, width = "8cm") %>% pack_rows(" Days Before Incentive-Eligible", 1, 3) %>% pack_rows(" Days After Incentive-Eligible", 4, 6) %>% row_spec(7, bold = T) %>% add_indent(c(1:6)) %>% footnote(general='UChicago is currently doing cash payment only, no NORC giftcards. Due to the cash incentives being provided to participants in clinic, there may be a short period of time where the incentive was provided to the participant at the end of the visit but the blood tubes had not been scanned into the biospecimen dashboard yet.',footnote_as_chunk = T,threeparttable = TRUE)
 ```
  
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.0'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 fig4
 ```
 
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.1'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.1'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 #HP
  print(Fig4[[1]])
 
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.2'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.2'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
   print(Fig4[[2]])
 #HFHS
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.3'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.3'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
   print(Fig4[[3]])
 #MFH
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.4'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.4'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
  print(Fig4[[4]])
 #SF
 ```
 
-```{r,eval=TRUE,echo=FALSE,fig.cap='Figure 4.5'}
+```{r,eval=TRUE,echo=FALSE,fig.cap='Figure 6.5'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 #UOC
  print(Fig4[[5]])
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.6'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.6'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 #KPCO
 print(Fig4[[6]])
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.7'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.7'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 #KPGA
 print(Fig4[[7]])
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.8'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.8'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 #KPHI
 print(Fig4[[8]])
 ```
 
-```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 4.9'}
+```{r, eval=TRUE,echo=FALSE,fig.cap='Figure 6.9'}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
  #KPNW
  print(Fig4[[9]])
@@ -2763,25 +3795,25 @@ options(knitr.table.format = "latex")
 options(kableExtra.auto_format = FALSE)
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 
-knitr::kable(cancer.veri.up[,c(1,6,5,2,3,7)],caption = 'Table 39. Previous Cancer Reported in User Profile by Verification Status', row.names=FALSE,format.args = list(big.mark = ","), align=c("l","c","c","c","c","c"),booktabs = T, linesep = "",
+knitr::kable(cancer.veri.up[,c(1,6,5,2,3,7)],caption = 'Table 40. Previous Cancer Reported in User Profile by Verification Status', row.names=FALSE,format.args = list(big.mark = ","), align=c("l","c","c","c","c","c"),booktabs = T, linesep = "",
 col.names = c("Site","Total Previous Cancer","Verified","Cannot be Verified","Duplicate","Total Recruits That Submitted UP"))%>%  add_header_above(header = c(" " = 2, "Previous Cancer by Verification Status" = 3, " "=1)) %>% add_indent(c(1:9))%>%landscape()%>% footnote(general='Frequency (%) of Total Recruits That Submitted UP',general_title = "Note:", footnote_as_chunk = T)
 
-knitr::kable(table40_actpass[,c(8,6,7)],caption = 'Table 40. Number of Active Verified Participants that Enrolled Passively',row.names=FALSE,format.args = list(big.mark = ","), align=c("l","c","c"),booktabs = T, linesep = "")%>% add_indent(c(1:9))
+knitr::kable(table41_actpass[,c(8,6,7)],caption = 'Table 41. Number of Active Verified Participants that Enrolled Passively',row.names=FALSE,format.args = list(big.mark = ","), align=c("l","c","c"),booktabs = T, linesep = "")%>% add_indent(c(1:9))
 
 signin_methods1 %>%  kable_styling(latex_options = "scale_down")%>%landscape()
 
-knitr::kable(Table42b_awaresreasons[,c(13,3:12),],caption = 'Table 42. How Recruits Heard About Study', row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c", "c","c","c"),format.args = list(big.mark=",")) %>% kable_styling(latex_options = "scale_down") %>% add_indent(c(1:20))%>% landscape() %>% footnote(general=c("Recruits may select more than one option.","Percentage is of each item in awareness among recruits within each site"),general_title="Note:",footnote_as_chunk = T)
+knitr::kable(Table43b_awaresreasons[,c(13,3:12),],caption = 'Table 43. How Recruits Heard About Study', row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c", "c","c","c"),format.args = list(big.mark=",")) %>% kable_styling(latex_options = "scale_down") %>% add_indent(c(1:20))%>% landscape() %>% footnote(general=c("Recruits may select more than one option.","Percentage is of each item in awareness among recruits within each site"),general_title="Note:",footnote_as_chunk = T)
  
-table43_Totalactivecamp %>% kable_styling(latex_options = "scale_down")%>% landscape()
+table44_Totalactivecamp %>% kable_styling(latex_options = "scale_down")%>% landscape()
 
-colnames(campaign.combo)[2:17] <- sapply(strsplit(colnames(campaign.combo)[2:17],"_"),tail,1)
-knitr::kable(as.data.frame(campaign.combo[ ,c(17,1:8,13:16,11,12,9:10,18)]),caption = 'Table 44. Success Rate by Campaign Type for Active Recruits',row.names=FALSE, booktabs = T, linesep = "", format.args = list(big.mark = ","), align = c("l", "c", "c","c", "c", "c", "c", "c", "c", "c", "c","c", "c", "c", "c", "c", "c","c"), col.names=c("Site","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Total Active Recruits")) %>% kable_styling(latex_options = "scale_down") %>% add_indent(c(1:9)) %>% add_header_above(c(" " = 1, "Aging out of Study" = 2, "Demographic Group" = 2, "Geographic Group"=2, "Non-Screening Appointment" =2, "Random" = 2, "Screening Appointment" = 2, "Other" = 2,"None of These Apply" = 2, " "=1)) %>% landscape() %>% footnote(general='Frequency (%) of Total Active Recruits of each Campaign Type by Site',general_title = "Note:", footnote_as_chunk = T)
+colnames(campaign.combo)[2:21] <- sapply(strsplit(colnames(campaign.combo)[2:19],"_"),tail,1)
+knitr::kable(as.data.frame(campaign.combo[ ,c(21,1:8,15,16,19,20,17,18,13,14,11,12,9,10,22)]),caption = 'Table 45. Success Rate by Campaign Type for Active Recruits',row.names=FALSE, booktabs = T, linesep = "", format.args = list(big.mark = ","), align = c("l", "c", "c","c", "c", "c", "c", "c", "c", "c", "c","c", "c", "c", "c", "c", "c","c"), col.names=c("Site","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Verified","Response Rate","Total Active Recruits")) %>% kable_styling(latex_options = "scale_down") %>% add_indent(c(1:9)) %>% add_header_above(c(" " = 1, "Aging out of Study" = 2, "Demographic Group" = 2, "Geographic Group"=2, "Non-Screening Appointment" =2, "Random" = 2, "Screening Appointment" = 2, "Research Registry" =2, "Pop up" =2, "Other" = 2,"None of These Apply" = 2, " "=1)) %>% landscape() %>% footnote(general='Frequency (%) of Total Active Recruits of each Campaign Type by Site',general_title = "Note:", footnote_as_chunk = T)
 
-knitr::kable(optout1.sites[,c(9,4,8,7)],caption = 'Table 45. Total Number of Pre-Consent Opt-Outs by Site',col.names=c("Site","Total Opt-Outs", "Percent %", "Total Active Recruits"), format.args = list(big.mark = ","), row.names=FALSE, align=c("l","c","c","c")) %>% add_indent(c(1:9)) %>% footnote(general=c('Frequency (%) of Overall Active Recruits of Connect.','KP not yet sending Opt-Out data'),general_title = "Note:", footnote_as_chunk = T)
+knitr::kable(optout1.sites[,c(9,4,8,7)],caption = 'Table 46. Total Number of Pre-Consent Opt-Outs by Site',col.names=c("Site","Total Opt-Outs", "Percent %", "Total Active Recruits"), format.args = list(big.mark = ","), row.names=FALSE, align=c("l","c","c","c")) %>% add_indent(c(1:9)) %>% footnote(general=c('Frequency (%) of Overall Active Recruits of Connect.','KP not yet sending Opt-Out data'),general_title = "Note:", footnote_as_chunk = T)
 
-Table46_precst_act1 
+Table47_precst_act1 
 
-knitr::kable(Table47_optreasons[,c(2:12),],caption = 'Table 47. Pre-Consent Opt-Out Reasons Among Those That Opted Out', row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c", "c","c","c"))%>%  kable_styling(latex_options = "scale_down") %>% add_indent(c(2:nrow(Table47_optreasons)-1)) %>% landscape() %>% footnote(general=c('KP sites are not currently sending data on opt-outs.','Frequency (%) of Total Opt-Outs by Site'),general_title = "Note:", footnote_as_chunk = T)
+knitr::kable(Table48_optreasons[,c(2:12),],caption = 'Table 48. Pre-Consent Opt-Out Reasons Among Those That Opted Out', row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c", "c","c","c"))%>%  kable_styling(latex_options = "scale_down") %>% add_indent(c(2:nrow(Table48_optreasons)-1)) %>% landscape() %>% footnote(general=c('KP sites are not currently sending data on opt-outs.','Frequency (%) of Total Opt-Outs by Site'),general_title = "Note:", footnote_as_chunk = T)
 
 work_flow_a  %>% kable_styling(latex_options = "scale_down")
 
@@ -2789,27 +3821,27 @@ work_flow_act  %>% kable_styling(latex_options = "scale_down")
 
 work_flow_pass  %>% kable_styling(latex_options = "scale_down")
 
-colnames(table51_Tm_recr_sign)[3:9] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table51_Tm_recr_sign[,c(1,10,2:9)],digits=2,caption = 'Table 51. Time From Active Recruitment to Sign-In in Days', col.names=linebreak(c("Site","Recruitment \nType","Total Active \nSign-In", "Min","Q1","Median","Mean","SD","Q3","Max")),row.names=FALSE, format.args = list(big.mark = ","), linesep = "", booktabs = T,align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
+colnames(table52_Tm_recr_sign)[3:9] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table52_Tm_recr_sign[,c(1,10,2:9)],digits=2,caption = 'Table 52. Time From Active Recruitment to Sign-In in Days', col.names=linebreak(c("Site","Recruitment \nType","Total Active \nSign-In", "Min","Q1","Median","Mean","SD","Q3","Max")),row.names=FALSE, format.args = list(big.mark = ","), linesep = "", booktabs = T,align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
 #Total Active Sign-In after excluding participants whose sign-in time was before active recruitment time (data being corrected)--previous footnote (Mar 29,2023)
 
 
-colnames(table52_Tm_signin_cst.act1)[4:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table52_Tm_signin_cst.act1,digits=2,format.args = list(big.mark = ","),caption = 'Table 52a. Time From Sign-In to Consent in Minutes Among Active Recruits',booktabs=T, linesep = "", col.names=linebreak(c("Site","Recruitment \n Type","Number \nConsent", "Min","Q1","Median","Mean","SD","Q3","Max")),row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
+colnames(table53_Tm_signin_cst.act1)[4:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table53_Tm_signin_cst.act1,digits=2,format.args = list(big.mark = ","),caption = 'Table 53a. Time From Sign-In to Consent in Minutes Among Active Recruits',booktabs=T, linesep = "", col.names=linebreak(c("Site","Recruitment \n Type","Number \nConsent", "Min","Q1","Median","Mean","SD","Q3","Max")),row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
 
 #colnames(table11_Tm_signin_cst.pas)[4:10,] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table52_Tm_signin_cst.pas1[,c(1,2,4:11)],digits=2,format.args = list(big.mark = ","),caption = 'Table 52b. Time From Sign-In to Consent in Minutes Among Passive Recruits',col.names=linebreak(c("Site","Recruitment \n Type","Number \nConsent", "Min","Q1","Median","Mean","SD","Q3","Max")), booktabs=T, linesep = "", row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
+knitr::kable(table53_Tm_signin_cst.pas1[,c(1,2,4:11)],digits=2,format.args = list(big.mark = ","),caption = 'Table 53b. Time From Sign-In to Consent in Minutes Among Passive Recruits',col.names=linebreak(c("Site","Recruitment \n Type","Number \nConsent", "Min","Q1","Median","Mean","SD","Q3","Max")), booktabs=T, linesep = "", row.names=FALSE, align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) %>% footnote(general="Excludes those with sign in time later than consent time (data being corrected).",general_title="Note:",footnote_as_chunk = T)
 
-colnames(table53_Tm_consent_prof.act1)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table53_Tm_consent_prof.act1[,c(1,2,4:11)],digits=2,caption = 'Table 53a. Time From Consent to User Profile Submitted in Minutes Among Active Recruits', format.args = list(big.mark = ","), col.names=linebreak(c("Site","Recruitment \n Type","Number UP \nto Submit", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9))
+colnames(table54_Tm_consent_prof.act1)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table54_Tm_consent_prof.act1[,c(1,2,4:11)],digits=2,caption = 'Table 54a. Time From Consent to User Profile Submitted in Minutes Among Active Recruits', format.args = list(big.mark = ","), col.names=linebreak(c("Site","Recruitment \n Type","Number UP \nto Submit", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9))
  
-colnames(table53_Tm_consent_prof.pas)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table53_Tm_consent_prof.pas[,c(1,2,4:11)],digits=2,caption = 'Table 53b. Time From Consent to User Profile Submitted in Minutes Among Passive Recruits', format.args = list(big.mark = ","), col.names=linebreak(c("Site","Recruitment \n Type","Number UP \nto Submit", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F)  %>% kable_styling(latex_options = "scale_down",font_size=14) %>% add_indent(c(1:9))
+colnames(table54_Tm_consent_prof.pas)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table54_Tm_consent_prof.pas[,c(1,2,4:11)],digits=2,caption = 'Table 54b. Time From Consent to User Profile Submitted in Minutes Among Passive Recruits', format.args = list(big.mark = ","), col.names=linebreak(c("Site","Recruitment \n Type","Number UP \nto Submit", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F)  %>% kable_styling(latex_options = "scale_down",font_size=14) %>% add_indent(c(1:9))
 
-colnames(table54_Tm_prof_verif.act)[3:9] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-table54_Tm_prof_verif.act <- table54_Tm_prof_verif.act[,c(1,10,2:9)] 
+colnames(table55_Tm_prof_verif.act)[3:9] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+table55_Tm_prof_verif.act <- table55_Tm_prof_verif.act[,c(1,10,2:9)] 
 
-knitr::kable(table54_Tm_prof_verif.act, digits=2,caption = 'Table 54a. Time From User Profile Submitted to Verification Complete in Days Among Active Recruits', row.names=FALSE, col.names=linebreak(c("Site","Recruitment \n Type","Total UP \nSubmitted", "Min","Q1","Median","Mean","SD","Q3","Max")), format.args = list(big.mark = ","), booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F)  %>% kable_styling(latex_options = "scale_down",full_width = F,font_size=12) %>% add_indent(c(1:9))  %>%    column_spec(4,width = "1cm") %>%
+knitr::kable(table55_Tm_prof_verif.act, digits=2,caption = 'Table 55a. Time From User Profile Submitted to Verification Complete in Days Among Active Recruits', row.names=FALSE, col.names=linebreak(c("Site","Recruitment \n Type","Total UP \nSubmitted", "Min","Q1","Median","Mean","SD","Q3","Max")), format.args = list(big.mark = ","), booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c"),escape=F)  %>% kable_styling(latex_options = "scale_down",full_width = F,font_size=12) %>% add_indent(c(1:9))  %>%    column_spec(4,width = "1cm") %>%
   column_spec(5,width = "1cm") %>%
     column_spec(6,width = "1cm") %>%
   column_spec(7,width = "1cm") %>% 
@@ -2819,13 +3851,13 @@ knitr::kable(table54_Tm_prof_verif.act, digits=2,caption = 'Table 54a. Time From
 #   footnote(general=c("Total UP Submitted are the total number of Active Recruits after UP submission to Verification", 
 #            "excluding participants whose UP submitted time was after their verification time"),general_title = "Note:",footnote_as_chunk = T,threeparttable = T) 
 
-colnames(table54_Tm_prof_verif.pas)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table54_Tm_prof_verif.pas[,c(1,2,4:11)],digits=2,caption = 'Table 54b. Time From User Profile Submitted to Verification Complete in Days among Passive Recruits',format.args = list(big.mark = ","),col.names=linebreak(c("Site","Recruitment \n Type","Total UP \nSubmitted", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c","c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) 
+colnames(table55_Tm_prof_verif.pas)[5:11] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table55_Tm_prof_verif.pas[,c(1,2,4:11)],digits=2,caption = 'Table 55b. Time From User Profile Submitted to Verification Complete in Days among Passive Recruits',format.args = list(big.mark = ","),col.names=linebreak(c("Site","Recruitment \n Type","Total UP \nSubmitted", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c","c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) 
 # %>% 
 #   footnote(general ="Total UP Submitted are the total number of Passive Recruits after UP submission to Verification",general_title = "Note:",footnote_as_chunk = T)
 
-colnames(table55_Tm_enroll_verif.act)[3:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max","Recruitment Type")
-knitr::kable(table55_Tm_enroll_verif.act[,c(1,10,2:9)],digits=2,format.args = list(big.mark = ","),caption = 'Table 45a. Total Enrollment Time in Days Among Active Recruits', col.names=linebreak(c("Site","Recruitment \n Type","Total Verification \nComplete", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c","c"),escape=F) %>% kable_styling(latex_options = "scale_down",full_width = F,font_size=14) %>% add_indent(c(1:9)) %>% 
+colnames(table56_Tm_enroll_verif.act)[3:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max","Recruitment Type")
+knitr::kable(table56_Tm_enroll_verif.act[,c(1,10,2:9)],digits=2,format.args = list(big.mark = ","),caption = 'Table 56a. Total Enrollment Time in Days Among Active Recruits', col.names=linebreak(c("Site","Recruitment \n Type","Total Verification \nComplete", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c", "c", "c", "c", "c", "c","c"),escape=F) %>% kable_styling(latex_options = "scale_down",full_width = F,font_size=14) %>% add_indent(c(1:9)) %>% 
    column_spec(4,width = "1cm") %>%
   column_spec(5,width = "1cm") %>%
     column_spec(6,width = "1cm") %>%
@@ -2834,23 +3866,21 @@ knitr::kable(table55_Tm_enroll_verif.act[,c(1,10,2:9)],digits=2,format.args = li
   column_spec(9,width = "1cm")%>%
   footnote(general=c("Total Enrollment Time is from time became an active recruit to time verification process was completed."),general_title="Note:",footnote_as_chunk = T,threeparttable = T)
 
-colnames(table55_Tm_enroll_verif.pas)[4:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
-knitr::kable(table55_Tm_enroll_verif.pas[,c(1,12,2,4:10)],digits=2,format.args = list(big.mark = ","),caption = 'Table 55b. Total Enrollment Time From Sign-In to Verification in Days Among Passive Recruits', col.names=linebreak(c("Site","Recruitment \n Type","Total Verification \nComplete", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) 
+colnames(table56_Tm_enroll_verif.pas)[4:10] <- c("Min","Q1","Median","Mean","SD","Q3","Max")
+knitr::kable(table56_Tm_enroll_verif.pas[,c(1,12,2,4:10)],digits=2,format.args = list(big.mark = ","),caption = 'Table 56b. Total Enrollment Time From Sign-In to Verification in Days Among Passive Recruits', col.names=linebreak(c("Site","Recruitment \n Type","Total Verification \nComplete", "Min","Q1","Median","Mean","SD","Q3","Max")), row.names=FALSE, booktabs = T, linesep = "", align=c("l", "c", "c","c","c", "c", "c", "c", "c", "c"),escape=F) %>% kable_styling(latex_options = "scale_down",font_size=12) %>% add_indent(c(1:9)) 
 
-table56_age %>% kable_styling(latex_options = "scale_down") %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table57_age %>% kable_styling(latex_options = "scale_down") %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
-table57_race %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table58_race %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
-table58%>% kable_styling(font_size=8) %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table59%>% kable_styling(font_size=8) %>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
-table59_ageall  %>% kable_styling(latex_options = "scale_down")%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table60_ageall  %>% kable_styling(latex_options = "scale_down")%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
-table60_raceall%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table61_raceall%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
-table61_sexall %>% kable_styling(latex_options = "scale_down")%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
+table62_sexall %>% kable_styling(latex_options = "scale_down")%>% footnote(general = 'Based on de-identified data sent by sites',general_title = "Note:",footnote_as_chunk = T)
 
 ```
-
-
 
 
