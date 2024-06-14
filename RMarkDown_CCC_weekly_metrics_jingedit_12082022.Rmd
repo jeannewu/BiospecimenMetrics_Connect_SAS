@@ -2448,8 +2448,8 @@ refwd.cases.notes <- tmp[,which(grepl("v1r0", colnames(tmp)) | colnames(tmp) %in
                                       d_130371375_d_266600170_d_222373868 ==104430631 ~"NO"),
            Time.Payment.Eligible.for.Round = ymd_hms(d_130371375_d_266600170_d_787567527))
 
-#    box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
-#              client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm")
+#    box_auth(client_id = client,
+#              client_secret = secret)
 # 
 #     box_setwd(dir_id = 167284102961)
 # 
