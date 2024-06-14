@@ -1966,8 +1966,8 @@ ftable(recrver_bio1$BioFin_BaseBloodCol_v1r0, recrver_bio1$BioFin_BaseUrineCol_v
 # 353358909 104430631          0         7
 # 353358909          1       385
 
-box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
-         client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm") 
+box_auth(client_id = client,
+         client_secret = secret) 
 box_setwd(dir_id = 170816197126) 
 
 bptl <- box_read(file_id=1025345093210)
