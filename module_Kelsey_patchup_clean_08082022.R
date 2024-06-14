@@ -28,8 +28,8 @@ bq_auth()
 #recr <- read.csv("~/Documents/Connect_projects/Biospecimen_Feb2022/Jing_projects/biospecQC_03082022/prod_recrument1_WL_NM_noinactive_08012022.csv",header=T)
 #veriid <- as.integer64(recrveri$Connect_ID)
 
-#box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
-#         client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm") 
+#box_auth(client_id = client,
+#         client_secret = secret) 
 #box_setwd(dir_id = 161836233301) 
 # box.com working directory changed to 'Team File Share'
 # 
