@@ -61,8 +61,8 @@ library(kableExtra)
 options(knitr.table.format = "latex")
 
 format(Sys.Date(), '%d %B, %Y')
-#  box_auth(client_id = "627lww8un9twnoa8f9rjvldf7kb56q1m",
-#           client_secret = "gSKdYKLd65aQpZGrq9x4QVUNnn5C8qqm")
+#  box_auth(client_id = client,
+#           client_secret = secret)
 # # 
 #  box_setwd(dir_id = 161836233301) 
 bq_auth()
